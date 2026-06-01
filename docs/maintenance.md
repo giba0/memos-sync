@@ -4,7 +4,7 @@ Guide for resolving issues with the Memos SP Plugin.
 
 ## Debugging Sync Issues
 
-1. Open the plugin side panel.
+1. Open the plugin in the central Super Productivity view.
 2. Review the **Sync Log** entries.
 3. Look at the diagnostics line for counts of local notes, remote memos, and computed actions.
 4. Check for explicit `error`, `conflict`, or `unlinked` results.
