@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Memos Sync</title>
+  <style>
+    :root {
+      --bg: var(--theme-background, #1e1e1e);
+      --fg: var(--theme-foreground, #e0e0e0);
+      --accent: var(--theme-primary, #0ea5e9);
+      --accent-hover: var(--theme-primary-dark, #0284c7);
+      --border: var(--theme-border, rgba(255, 255, 255, 0.1));
+      --card-bg: rgba(255, 255, 255, 0.03);
+      --card-bg-hover: rgba(255, 255, 255, 0.05);
+      --sidebar-bg: rgba(0, 0, 0, 0.1);
+      --text-muted: rgba(255, 255, 255, 0.5);
+      --radius: 12px;
+      --btn-radius: 6px;
+      --success: #10b981;
+      --error: #ef4444;
+      --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+    }
+
+    * { box-sizing: border-box; }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    .memos-layout {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 280px;
+      min-width: 280px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    .brand {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+    }
+
+    .search-box {
+      margin-bottom: 24px;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="password"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--btn-radius);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, textarea:focus { border-color: var(--accent); }
+
+    .nav-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--btn-radius);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover { background: var(--card-bg); }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    button.danger { color: var(--error); border-color: rgba(239, 68, 68, 0.3); }
+    button.danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+    button.btn-text { border: none; background: transparent; padding: 6px 10px; }
+    button.btn-text:hover { background: var(--card-bg); }
+
+    /* SETTINGS & LOG */
+    details {
+      border-top: 1px solid var(--border);
+      padding: 16px 0;
+    }
+
+    details summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-muted);
+      user-select: none;
+      display: flex;
+      align-items: center;
+      outline: none;
+    }
+
+    details summary:hover { color: var(--fg); }
+
+    .settings-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .settings-form label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .settings-inline {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .settings-inline input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    .status-msg {
+      font-size: 12px;
+      padding: 8px;
+      border-radius: var(--btn-radius);
+      margin-top: 8px;
+      display: none;
+    }
+    .status-msg.success { display: block; background: rgba(16, 185, 129, 0.1); color: var(--success); }
+    .status-msg.error { display: block; background: rgba(239, 68, 68, 0.1); color: var(--error); }
+
+    .sync-log-content {
+      margin-top: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    /* MAIN CONTENT */
+    .main-content {
+      flex: 1;
+      padding: 32px 48px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .timeline-wrapper {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* COMPOSER */
+    .composer {
+      background: transparent;
+      border: 1px solid transparent;
+      border-bottom: 1px solid var(--border);
+      border-radius: 0;
+      padding: 0 0 16px 0;
+      transition: border-color 0.2s;
+    }
+
+    .composer:focus-within { border-bottom-color: var(--accent); }
+
+    .composer textarea {
+      width: 100%;
+      min-height: 80px;
+      background: transparent;
+      border: none;
+      padding: 0;
+      resize: none;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .composer-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .composer-meta { font-size: 12px; color: var(--text-muted); }
+    .composer-actions { display: flex; gap: 8px; }
+    .attachment-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .attachment-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .attachment-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .attachment-size { color: var(--text-muted); }
+
+    /* TIMELINE */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .timeline-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      transition: all 0.2s ease;
+    }
+
+    .timeline-card:hover {
+      background: var(--card-bg-hover);
+    }
+
+    .timeline-card.active-card {
+      background: var(--card-bg-hover);
+      border-color: var(--accent);
+    }
+
+    .timeline-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .timeline-meta .date {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .dropdown {
+      position: relative;
+    }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 10;
+      padding: 4px;
+      min-width: 120px;
+    }
+
+    .dropdown-menu.show { display: block; }
+
+    .menu-item {
+      width: 100%;
+      text-align: left;
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: var(--fg);
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .menu-item:hover { background: var(--card-bg-hover); }
+
+    .btn-icon {
+      background: transparent;
+      border: none;
+      padding: 4px 8px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+      opacity: 0.7;
+    }
+
+    .btn-icon:hover {
+      background: rgba(255, 255, 255, 0.1);
+      opacity: 1;
+    }
+
+    .danger-text { color: var(--error); }
+
+    .timeline-content {
+      font-size: 15px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .note-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      margin: 0 2px;
+      border-radius: 4px;
+      background: var(--card-bg-hover);
+      color: var(--text-muted);
+      font-size: 0.9em;
+      line-height: 1.4;
+      white-space: nowrap;
+      transition: color 0.2s;
+    }
+
+    .note-tag:hover {
+      color: var(--accent);
+    }
+
+    .timeline-attachments {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .attachment-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card-bg);
+      font-size: 13px;
+      color: var(--fg);
+    }
+
+    .conflicts-header {
+      color: var(--error);
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .conflict-item {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 12px;
+      border-radius: var(--btn-radius);
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .conflict-actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .empty-timeline {
+      text-align: center;
+      padding: 48px 0;
+      color: var(--text-muted);
+      font-size: 15px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+    }
+
+    @media (max-width: 900px) {
+      .memos-layout { flex-direction: column; }
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 300px; }
+      .main-content { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="memos-layout">
+    <aside class="sidebar">
+      <div class="brand">📝 Memos Sync</div>
+      
+      <div class="search-box">
+        <input type="text" id="notes-search" placeholder="Search notes...">
+      </div>
+
+      <div class="nav-buttons">
+        <button id="btn-sync" class="primary">
+          <span class="btn-text-label">Sync Now</span>
+        </button>
+      </div>
+
+      <details>
+        <summary>Settings & Connection</summary>
+        <div class="settings-form">
+          <div>
+            <label for="memos-url">Memos Instance URL</label>
+            <input type="url" id="memos-url" placeholder="https://memos.example.com">
+          </div>
+          <div>
+            <label for="memos-token">API Token</label>
+            <input type="password" id="memos-token" placeholder="Your memos access token">
+          </div>
+          <div>
+            <label for="sync-tag">Sync Tag</label>
+            <input type="text" id="sync-tag" placeholder="memos-sync">
+          </div>
+          <div>
+            <label class="settings-inline" for="auto-sync-enabled">
+              <input type="checkbox" id="auto-sync-enabled">
+              <span>Enable auto-sync</span>
+            </label>
+          </div>
+          <div>
+            <label for="auto-sync-interval">Auto-sync interval (minutes)</label>
+            <input type="number" id="auto-sync-interval" min="1" step="1" placeholder="5">
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <button id="btn-test" style="flex: 1;">Test</button>
+            <button id="btn-save" class="primary" style="flex: 1;">Save</button>
+          </div>
+          <div id="connection-status" class="status-msg"></div>
+        </div>
+      </details>
+
+      <details>
+        <summary>Sync Log</summary>
+        <div class="sync-log-content" id="sync-log"></div>
+      </details>
+    </aside>
+
+    <main class="main-content">
+      <div class="timeline-wrapper">
+        <div id="conflicts-section" class="conflicts-wrapper" style="display: none;">
+          <div class="conflicts-header">⚠️ Sync Conflicts Detected</div>
+          <div id="conflicts-list"></div>
+        </div>
+
+        <div class="composer">
+          <textarea id="note-editor" placeholder="What's on your mind?"></textarea>
+          <div class="composer-toolbar">
+            <div class="composer-meta" id="selected-note-meta"></div>
+            <div class="composer-actions">
+              <input type="file" id="attachment-input" style="display:none" multiple>
+              <button id="btn-attach" class="btn-text" title="Attach file" aria-label="Attach file">📎</button>
+              <button id="btn-cancel" class="btn-text" style="display: none;">Cancel</button>
+              <button id="btn-save-note" class="primary"><span class="save-label">Save</span></button>
+            </div>
+          </div>
+          <div id="editor-attachments" class="attachment-list"></div>
+        </div>
+
+        <div class="timeline" id="notes-list"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const plugin = window.parent.__memosSyncPlugin;
+
+    const urlInput = document.getElementById('memos-url');
+    const tokenInput = document.getElementById('memos-token');
+    const tagInput = document.getElementById('sync-tag');
+    const autoSyncEnabledEl = document.getElementById('auto-sync-enabled');
+    const autoSyncIntervalEl = document.getElementById('auto-sync-interval');
+    const statusEl = document.getElementById('connection-status');
+    const notesSearchEl = document.getElementById('notes-search');
+    const notesListEl = document.getElementById('notes-list');
+    const noteEditorEl = document.getElementById('note-editor');
+    const selectedMetaEl = document.getElementById('selected-note-meta');
+    const syncLogEl = document.getElementById('sync-log');
+    const attachmentInputEl = document.getElementById('attachment-input');
+    const editorAttachmentsEl = document.getElementById('editor-attachments');
+    const btnAttach = document.getElementById('btn-attach');
+    
+    const btnCancel = document.getElementById('btn-cancel');
+    const btnSaveNote = document.getElementById('btn-save-note');
+    const saveLabel = btnSaveNote.querySelector('.save-label');
+    let lastComposeRequestId = null;
+
+    function readConfigFromForm() {
+      return {
+        memosBaseUrl: urlInput.value.trim(),
+        memosApiToken: tokenInput.value.trim(),
+        syncTag: tagInput.value.trim() || 'memos-sync',
+        autoSyncEnabled: autoSyncEnabledEl.checked,
+        pollIntervalMs: Math.max(1, Number(autoSyncIntervalEl.value || 5)) * 60 * 1000,
+      };
+    }
+
+    function currentState() {
+      return plugin ? plugin.getState() : null;
+    }
+
+    function selectedNote(state) {
+      if (!state || !state.selectedNoteId || !state.notes) return null;
+      return state.notes.find((note) => note.id === state.selectedNoteId) || null;
+    }
+
+    function deselectNote() {
+      if (!plugin) return;
+      try { plugin.selectNote(null); } catch (e) {
+        try { plugin.selectNote(''); } catch (e2) {}
+      }
+    }
+
+    function loadUI() {
+      if (!plugin) return;
+      const state = currentState();
+      if (!state) return;
+      
+      if (document.activeElement !== urlInput) urlInput.value = state.config.memosBaseUrl || '';
+      if (document.activeElement !== tokenInput) tokenInput.value = state.config.memosApiToken || '';
+      if (document.activeElement !== tagInput) tagInput.value = state.config.syncTag || 'memos-sync';
+      autoSyncEnabledEl.checked = Boolean(state.config.autoSyncEnabled);
+      if (document.activeElement !== autoSyncIntervalEl) {
+        autoSyncIntervalEl.value = String(Math.max(1, Math.round((state.config.pollIntervalMs || 300000) / 60000)));
+      }
+
+      renderNotes(state);
+      renderEditor(state);
+      renderConflicts(state);
+      renderLog(state.syncLog || []);
+
+      if (state.composeRequestId && state.composeRequestId !== lastComposeRequestId) {
+        lastComposeRequestId = state.composeRequestId;
+        requestAnimationFrame(() => {
+          noteEditorEl.focus();
+        });
+      }
+    }
+
+    function formatAttachmentSize(bytes) {
+      if (!bytes) return '0 B';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function renderAttachmentList(attachments, removable) {
+      if (!attachments || attachments.length === 0) {
+        return '';
+      }
+
+      return attachments.map((attachment) => {
+        const action = removable
+          ? '<button class="btn-icon danger-text" onclick="window.removeAttachmentQuick(\'' + attachment.id + '\')" title="Remove attachment">🗑️</button>'
+          : attachment.remoteUrl
+            ? '<a class="btn-text" target="_blank" rel="noreferrer" href="' + escapeHtml(attachment.remoteUrl) + '">Open</a>'
+            : '';
+        return '<div class="attachment-chip">' +
+          '<div class="attachment-meta">' +
+          '<div class="attachment-name">' + escapeHtml(attachment.filename) + '</div>' +
+          '<div class="attachment-size">' + escapeHtml(formatAttachmentSize(Number(attachment.size || 0))) + '</div>' +
+          '</div>' +
+          action +
+          '</div>';
+      }).join('');
+    }
+
+    function formatNoteContent(content) {
+      return escapeHtml(content || '').replace(/(^|\s)(#[\p{L}\p{N}_-]+)/gu, function(_, prefix, tag) {
+        return prefix + '<span class="note-tag">' + escapeHtml(tag) + '</span>';
+      });
+    }
+
+    function renderNotes(state) {
+      const searchTerm = notesSearchEl.value.trim().toLowerCase();
+      const allNotes = state.notes || [];
+      const sortedNotes = [...allNotes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      const filteredNotes = sortedNotes.filter((note) => {
+        if (!searchTerm) return true;
+        return (note.content || '').toLowerCase().includes(searchTerm);
+      });
+
+      if (filteredNotes.length === 0) {
+        notesListEl.innerHTML = '<div class="empty-timeline">No notes yet. Type above to create one.</div>';
+        return;
+      }
+
+      notesListEl.innerHTML = filteredNotes.map((note) => {
+        const isActive = note.id === state.selectedNoteId;
+        return '<div class="timeline-card ' + (isActive ? 'active-card' : '') + '" id="card-' + note.id + '">' +
+          '<div class="timeline-meta">' +
+            '<span class="date" title="' + new Date(note.createdAt).toLocaleString() + '">' + formatTimeAgo(note.createdAt) + '</span>' +
+            '<div class="dropdown">' +
+              '<button class="btn-icon" onclick="toggleDropdown(event, \'dropdown-' + note.id + '\')">⋯</button>' +
+              '<div class="dropdown-menu" id="dropdown-' + note.id + '">' +
+                '<button class="menu-item" onclick="window.selectNote(\'' + note.id + '\')">Edit</button>' +
+                '<button class="menu-item danger-text" onclick="window.deleteNoteQuick(\'' + note.id + '\')">Delete</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="timeline-content">' + formatNoteContent(note.content || '') + '</div>' +
+          (note.attachments && note.attachments.length
+            ? '<div class="timeline-attachments">' + renderAttachmentList(note.attachments, false) + '</div>'
+            : '') +
+        '</div>';
+      }).join('');
+    }
+
+    function renderEditor(state) {
+      const note = selectedNote(state);
+      
+      if (!note) {
+        selectedMetaEl.textContent = '';
+        if (document.activeElement !== noteEditorEl) {
+          noteEditorEl.value = '';
+        }
+        noteEditorEl.placeholder = "What's on your mind?";
+        noteEditorEl.dataset.mode = 'quick';
+        btnCancel.style.display = 'none';
+        saveLabel.textContent = 'Save';
+        editorAttachmentsEl.innerHTML = '';
+        return;
+      }
+
+      noteEditorEl.dataset.mode = 'edit';
+      selectedMetaEl.textContent = 'Created ' + new Date(note.createdAt).toLocaleString();
+      if (document.activeElement !== noteEditorEl) {
+        noteEditorEl.value = note.content;
+      }
+      noteEditorEl.placeholder = "Edit note...";
+      btnCancel.style.display = 'inline-flex';
+      saveLabel.textContent = 'Save';
+      editorAttachmentsEl.innerHTML = renderAttachmentList(note.attachments || [], true);
+    }
+
+    function renderConflicts(state) {
+      const conflicts = state.mappingStore ? state.mappingStore.mappings.filter((mapping) => mapping.state === 'conflict') : [];
+      const section = document.getElementById('conflicts-section');
+      const list = document.getElementById('conflicts-list');
+
+      if (conflicts.length === 0) {
+        section.style.display = 'none';
+        list.innerHTML = '';
+        return;
+      }
+
+      section.style.display = 'block';
+      list.innerHTML = conflicts.map((mapping) => {
+        return '<div class="conflict-item">' +
+          '<div><strong>Local note ID:</strong> ' + escapeHtml(mapping.localNoteId) + '</div>' +
+          '<div><strong>Remote memo ID:</strong> ' + escapeHtml(mapping.memoId) + '</div>' +
+          '<div class="conflict-actions">' +
+            '<button class="primary" onclick="window.resolveConflictReal(\'' + mapping.localNoteId + '\', \'' + mapping.memoId + '\', \'local\')">Keep Local</button>' +
+            '<button onclick="window.resolveConflictReal(\'' + mapping.localNoteId + '\', \'' + mapping.memoId + '\', \'remote\')">Keep Remote</button>' +
+            '<button class="danger" onclick="window.unlinkPair(\'' + mapping.localNoteId + '\', \'' + mapping.memoId + '\')">Unlink</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function renderLog(entries) {
+      if (!entries.length) {
+        syncLogEl.innerHTML = '<div style="padding: 8px;">No sync activity yet.</div>';
+        return;
+      }
+
+      syncLogEl.innerHTML = entries.slice(0, 15).map((entry) => {
+        const details = entry.results.map((result) => {
+          const parts = [result.action];
+          if (result.localNoteId) parts.push('L:' + result.localNoteId.slice(0,6));
+          if (result.memoId) parts.push('R:' + result.memoId);
+          if (result.detail) parts.push(result.detail);
+          return '<div style="margin-top: 4px; padding-left: 8px; border-left: 2px solid var(--border);">' + escapeHtml(parts.join(' | ')) + '</div>';
+        }).join('');
+
+        return '<div style="margin-bottom: 12px;">' +
+          '<div style="color: var(--fg); margin-bottom: 4px;">' +
+            new Date(entry.timestamp).toLocaleTimeString() + ' • ' + escapeHtml(entry.triggeredBy) +
+          '</div>' + details +
+        '</div>';
+      }).join('');
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function formatTimeAgo(dateInput) {
+      const date = new Date(dateInput);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffHour = Math.floor(diffMin / 60);
+      const diffDay = Math.floor(diffHour / 24);
+      
+      if (diffSec < 60) return 'just now';
+      if (diffMin < 60) return diffMin + ' minute' + (diffMin === 1 ? '' : 's') + ' ago';
+      if (diffHour < 24) return diffHour + ' hour' + (diffHour === 1 ? '' : 's') + ' ago';
+      if (diffDay === 1) return 'yesterday';
+      if (diffDay < 7) return diffDay + ' days ago';
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+    }
+
+    function toggleDropdown(event, id) {
+      event.stopPropagation();
+      document.querySelectorAll('.dropdown-menu.show').forEach(m => {
+        if (m.id !== id) m.classList.remove('show');
+      });
+      document.getElementById(id).classList.toggle('show');
+    }
+
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+    });
+
+    window.selectNote = function(noteId) {
+      if (!plugin) return;
+      plugin.selectNote(noteId);
+      loadUI();
+      noteEditorEl.focus();
+      noteEditorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    window.deleteNoteQuick = function(id) {
+      if (!plugin) return;
+      if (confirm("Delete this note?")) {
+        plugin.deleteNote(id);
+        const state = currentState();
+        if (state && state.selectedNoteId === id) {
+          deselectNote();
+        }
+        loadUI();
+      }
+    };
+
+    window.removeAttachmentQuick = function(attachmentId) {
+      if (!plugin) return;
+      const state = currentState();
+      if (!state || !state.selectedNoteId) return;
+      plugin.removeAttachment(state.selectedNoteId, attachmentId);
+      loadUI();
+    };
+
+    window.resolveConflictReal = async function(localNoteId, memoId, winner) {
+      if (!plugin) return;
+      await plugin.resolveConflict(localNoteId, memoId, winner);
+      loadUI();
+    };
+
+    window.unlinkPair = async function(localNoteId, memoId) {
+      if (!plugin) return;
+      plugin.unlinkPair(localNoteId, memoId);
+      loadUI();
+    };
+
+    document.getElementById('btn-save').addEventListener('click', () => {
+      if (!plugin) return;
+      plugin.updateConfig(readConfigFromForm());
+      statusEl.className = 'status-msg success';
+      statusEl.textContent = 'Configuration saved.';
+      setTimeout(() => { statusEl.className = 'status-msg'; }, 3000);
+    });
+
+    document.getElementById('btn-test').addEventListener('click', async () => {
+      if (!plugin) return;
+      statusEl.className = 'status-msg';
+      statusEl.style.display = 'block';
+      statusEl.textContent = 'Testing...';
+      const result = await plugin.testConnection(readConfigFromForm());
+      statusEl.className = 'status-msg ' + (result.ok ? 'success' : 'error');
+      statusEl.textContent = result.message;
+    });
+
+    const newButton = document.getElementById('btn-new');
+    if (newButton) {
+      newButton.addEventListener('click', () => {
+        if (!plugin) return;
+        plugin.startNewNote();
+        noteEditorEl.value = '';
+        editorAttachmentsEl.innerHTML = '';
+        loadUI();
+        noteEditorEl.focus();
+      });
+    }
+
+    btnSaveNote.addEventListener('click', () => {
+      if (!plugin) return;
+      const text = noteEditorEl.value.trim();
+      if (!text) return;
+
+      if (noteEditorEl.dataset.mode === 'quick') {
+        plugin.createNote();
+        const state = currentState();
+        if (state && state.selectedNoteId) {
+          plugin.updateNote(state.selectedNoteId, text);
+          deselectNote();
+        }
+      } else {
+        const state = currentState();
+        if (state && state.selectedNoteId) {
+          plugin.updateNote(state.selectedNoteId, text);
+          deselectNote();
+        }
+      }
+
+      noteEditorEl.value = '';
+      noteEditorEl.blur();
+      editorAttachmentsEl.innerHTML = '';
+      loadUI();
+    });
+
+    btnCancel.addEventListener('click', () => {
+      deselectNote();
+      loadUI();
+    });
+
+    btnAttach.addEventListener('click', () => {
+      attachmentInputEl.click();
+    });
+
+    attachmentInputEl.addEventListener('change', async (event) => {
+      if (!plugin) return;
+      const files = Array.from(event.target.files || []);
+      if (!files.length) return;
+
+      let state = currentState();
+      if (!state.selectedNoteId) {
+        plugin.createNote();
+        state = currentState();
+        if (state && state.selectedNoteId && noteEditorEl.value.trim()) {
+          plugin.updateNote(state.selectedNoteId, noteEditorEl.value);
+        }
+      }
+
+      if (!state || !state.selectedNoteId) return;
+
+      for (const file of files) {
+        const base64Content = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = String(reader.result || '');
+            resolve(result.includes(',') ? result.split(',')[1] : result);
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+
+        plugin.addAttachment(state.selectedNoteId, {
+          name: '',
+          filename: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          size: file.size,
+          base64Content,
+        });
+      }
+
+      attachmentInputEl.value = '';
+      loadUI();
+    });
+
+    document.getElementById('btn-sync').addEventListener('click', async () => {
+      if (!plugin) return;
+      const btnText = document.getElementById('btn-sync').querySelector('.btn-text-label');
+      const originalText = btnText.textContent;
+      btnText.textContent = 'Syncing...';
+      try {
+        await plugin.runSync(readConfigFromForm());
+      } finally {
+        btnText.textContent = originalText;
+        loadUI();
+      }
+    });
+
+    notesSearchEl.addEventListener('input', loadUI);
+
+    window.addEventListener('keydown', async (event) => {
+      const isMac = navigator.platform.toLowerCase().includes('mac');
+      const primaryModifier = isMac ? event.metaKey : event.ctrlKey;
+
+      if (primaryModifier && event.key === 'Enter') {
+        event.preventDefault();
+        btnSaveNote.click();
+        return;
+      }
+
+      if (primaryModifier && event.shiftKey && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        document.getElementById('btn-sync').click();
+        return;
+      }
+
+      if (primaryModifier && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        if (newButton) {
+          newButton.click();
+        }
+      }
+    });
+
+    setTimeout(loadUI, 50);
+  </script>
+</body>
+</html>

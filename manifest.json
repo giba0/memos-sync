@@ -1,0 +1,22 @@
+{
+  "id": "memos-sync",
+  "name": "Memos Sync",
+  "version": "0.1.0",
+  "manifestVersion": 1,
+  "minSupVersion": "14.0.0",
+  "description": "Two-way selective sync between plugin-owned notes in Super Productivity and usememos",
+  "author": "Giba0",
+  "homepage": "https://github.com/giba0/memos-sync",
+  "icon": "icon.svg",
+  "iFrame": true,
+  "type": "standard",
+  "permissions": [
+    "persistDataSynced",
+    "loadSyncedData",
+    "showSnack",
+    "showIndexHtmlAsView"
+  ],
+  "hooks": [],
+  "assets": [],
+  "uiKit": true
+}
