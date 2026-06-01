@@ -13,14 +13,14 @@ Guide for resolving issues with the Memos SP Plugin.
 
 - **401 Unauthorized**: The API token is invalid or expired.
 - **404 Not Found**: The Memos URL is incorrect or a linked memo was deleted.
-- **Network error**: The usememos instance is unreachable.
+- **Network error**: The Memos instance is unreachable.
 - **Conflict detected**: Both the local plugin note and the remote memo changed since the last successful sync.
 
 ## Resetting State
 
 If the plugin state becomes inconsistent:
 
-1. Back up your usememos data first.
+1. Back up your Memos data first.
 2. Remove the plugin from Super Productivity.
 3. Clear the plugin cache.
 4. Reinstall the plugin.

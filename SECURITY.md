@@ -23,7 +23,7 @@ When reporting a vulnerability, include:
 
 ## Sensitive Data Guidance
 
-This plugin stores the usememos API token in Super Productivity plugin storage. Treat exported plugin state as sensitive data.
+This plugin stores the Memos API token in Super Productivity plugin storage. Treat exported plugin state as sensitive data.
 
 Do not publish:
 
