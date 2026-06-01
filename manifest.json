@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "manifestVersion": 1,
   "minSupVersion": "14.0.0",
-  "description": "Two-way selective sync between plugin-owned notes in Super Productivity and usememos",
+  "description": "Two-way selective sync between plugin-owned notes in Super Productivity and Memos",
   "author": "Giba0",
   "homepage": "https://github.com/giba0/memos-sync",
   "icon": "icon.svg",

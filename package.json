@@ -1,7 +1,7 @@
 {
   "name": "memos-sync",
   "version": "0.1.0",
-  "description": "Two-way sync between plugin-owned notes in Super Productivity and usememos",
+  "description": "Two-way sync between plugin-owned notes in Super Productivity and Memos",
   "main": "dist/plugin.js",
   "scripts": {
     "build": "npm run typecheck && node scripts/bundle.js",
@@ -13,7 +13,7 @@
   },
   "keywords": [
     "super-productivity",
-    "usememos",
+    "memos",
     "sync",
     "plugin",
     "notes"
