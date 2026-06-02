@@ -15,7 +15,7 @@ This plugin is intentionally **note-centric**.
 If you want a lightweight Memos-style notes flow inside Super Productivity, this plugin is built for that.
 
 ## Preview
-![[memos-sync-preview.png]]
+![Memos Sync](docs/assets/memos-sync-preview.png)
 
 ## Features
 
