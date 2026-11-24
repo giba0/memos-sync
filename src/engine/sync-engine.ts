@@ -5,6 +5,9 @@ export interface LocalNoteSnapshot {
   content: string;
   updatedAt: string;
   createdAt: string;
+  state?: 'NORMAL' | 'ARCHIVED';
+  pinned?: boolean;
+  visibility?: 'PRIVATE' | 'PROTECTED' | 'PUBLIC' | 'SPACE';
   attachments: Array<{
     id: string;
     filename: string;
@@ -21,6 +24,9 @@ export interface RemoteMemoSnapshot {
   tags: string[];
   updatedAt: string;
   createdAt: string;
+  state?: 'NORMAL' | 'ARCHIVED';
+  pinned?: boolean;
+  visibility?: 'PRIVATE' | 'PROTECTED' | 'PUBLIC' | 'SPACE';
   attachments: Array<{
     name: string;
     filename: string;
@@ -32,7 +38,7 @@ export interface RemoteMemoSnapshot {
 /**
  * Sync actions for plugin-owned notes.
  * - create-memo creates a new remote memo from a local note.
- * - create-local-note imports a tagged remote memo into the local note store.
+ * - create-local-note imports a remote memo into the local note store.
  * - update-memo pushes a changed local note to an existing remote memo.
  * - update-local-note pulls a changed remote memo into an existing local note.
  * - mark-conflict blocks automatic overwrite after changes on both sides.
@@ -63,6 +69,8 @@ export type SyncAction =
       content: string;
       localUpdatedAt: string;
       contentHash: string;
+      expectedRemoteHash: string;
+      expectedLocalHash: string;
     }
   | {
       type: 'update-local-note';
@@ -71,6 +79,8 @@ export type SyncAction =
       content: string;
       memoUpdatedAt: string;
       contentHash: string;
+      expectedRemoteHash: string;
+      expectedLocalHash: string;
     }
   | {
       type: 'mark-conflict';
@@ -85,6 +95,12 @@ export type SyncAction =
       type: 'no-op';
       localNoteId: string;
       memoId: string;
+      snapshotHash?: string;
+    }
+  | {
+      type: 'remote-missing';
+      localNoteId: string;
+      memoId: string;
     }
   | {
       type: 'mark-unlinked';
@@ -97,7 +113,6 @@ export interface ComputeSyncActionsParams {
   localNotes: LocalNoteSnapshot[];
   remoteMemos: RemoteMemoSnapshot[];
   mappingStore: MappingStore;
-  syncTag: string;
 }
 
 export function hashContent(input: string): string {
@@ -118,8 +133,38 @@ export function hashContent(input: string): string {
   return `${firstPart}${secondPart}${lengthPart}`;
 }
 
+export function hashLocalSnapshot(note: LocalNoteSnapshot): string {
+  return hashContent(JSON.stringify({
+    content: note.content,
+    state: note.state ?? 'NORMAL',
+    pinned: note.pinned ?? false,
+    visibility: note.visibility ?? 'PRIVATE',
+    attachments: note.attachments.map((item) => ({
+      name: item.remoteName || `local:${item.id}`,
+      filename: item.filename,
+      type: item.mimeType,
+      size: Number(item.size),
+    })).sort((a, b) => a.name.localeCompare(b.name)),
+  }));
+}
+
+export function hashRemoteSnapshot(memo: RemoteMemoSnapshot): string {
+  return hashContent(JSON.stringify({
+    content: memo.content,
+    state: memo.state ?? 'NORMAL',
+    pinned: memo.pinned ?? false,
+    visibility: memo.visibility ?? 'PRIVATE',
+    attachments: memo.attachments.map((item) => ({
+      name: item.name,
+      filename: item.filename,
+      type: item.type,
+      size: Number(item.size),
+    })).sort((a, b) => a.name.localeCompare(b.name)),
+  }));
+}
+
 export function computeSyncActions(params: ComputeSyncActionsParams): SyncAction[] {
-  const { localNotes, remoteMemos, mappingStore, syncTag } = params;
+  const { localNotes, remoteMemos, mappingStore } = params;
   const actions: SyncAction[] = [];
 
   const mappingsByLocalNoteId = new Map<string, SyncMapping>();
@@ -164,18 +209,41 @@ export function computeSyncActions(params: ComputeSyncActionsParams): SyncAction
     const remoteMemo = remoteMemosById.get(mapping.memoId);
     if (!remoteMemo) {
       actions.push({
-        type: 'mark-unlinked',
+        type: 'remote-missing',
         localNoteId: localNote.id,
         memoId: mapping.memoId,
-        reason: 'remote-deleted',
       });
       continue;
     }
 
-    const localHash = hashContent(JSON.stringify({ content: localNote.content, attachments: localNote.attachments }));
-    const remoteHash = hashContent(JSON.stringify({ content: remoteMemo.content, attachments: remoteMemo.attachments }));
-    const localChanged = localHash !== mapping.lastSyncedContentHash;
-    const remoteChanged = remoteHash !== mapping.lastSyncedContentHash;
+    const localHash = hashLocalSnapshot(localNote);
+    const remoteHash = hashRemoteSnapshot(remoteMemo);
+    let localChanged: boolean;
+    let remoteChanged: boolean;
+    if (mapping.lastSyncedSnapshotHash) {
+      localChanged = localHash !== mapping.lastSyncedSnapshotHash;
+      remoteChanged = remoteHash !== mapping.lastSyncedSnapshotHash;
+    } else {
+      const oldLocalHash = hashContent(JSON.stringify({ content: localNote.content, attachments: localNote.attachments }));
+      const oldRemoteHash = hashContent(JSON.stringify({ content: remoteMemo.content, attachments: remoteMemo.attachments }));
+      localChanged = oldLocalHash !== mapping.lastSyncedContentHash;
+      remoteChanged = oldRemoteHash !== mapping.lastSyncedContentHash;
+      if (localHash === remoteHash) {
+        localChanged = false;
+        remoteChanged = false;
+      } else if (!localChanged && !remoteChanged) {
+        localChanged = localNote.updatedAt !== mapping.lastKnownLocalUpdatedAt;
+        remoteChanged = remoteMemo.updatedAt !== mapping.lastKnownMemoUpdatedAt || !localChanged;
+      }
+    }
+
+    if (mapping.state === 'conflict') {
+      localChanged = true;
+      remoteChanged = true;
+    } else if (localHash === remoteHash) {
+      localChanged = false;
+      remoteChanged = false;
+    }
 
     if (localChanged && remoteChanged) {
       actions.push({
@@ -198,6 +266,8 @@ export function computeSyncActions(params: ComputeSyncActionsParams): SyncAction
         content: localNote.content,
         localUpdatedAt: localNote.updatedAt,
         contentHash: localHash,
+        expectedRemoteHash: remoteHash,
+        expectedLocalHash: localHash,
       });
       continue;
     }
@@ -210,6 +280,8 @@ export function computeSyncActions(params: ComputeSyncActionsParams): SyncAction
         content: remoteMemo.content,
         memoUpdatedAt: remoteMemo.updatedAt,
         contentHash: remoteHash,
+        expectedRemoteHash: remoteHash,
+        expectedLocalHash: localHash,
       });
       continue;
     }
@@ -218,6 +290,7 @@ export function computeSyncActions(params: ComputeSyncActionsParams): SyncAction
       type: 'no-op',
       localNoteId: localNote.id,
       memoId: mapping.memoId,
+      snapshotHash: localHash,
     });
   }
 
@@ -243,10 +316,6 @@ export function computeSyncActions(params: ComputeSyncActionsParams): SyncAction
     }
 
     if (mappingsByMemoId.has(remoteMemo.memoId)) {
-      continue;
-    }
-
-    if (!remoteMemo.tags.includes(syncTag)) {
       continue;
     }
 

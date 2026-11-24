@@ -13,8 +13,16 @@ Guide for resolving issues with the Memos SP Plugin.
 
 - **401 Unauthorized**: The API token is invalid or expired.
 - **404 Not Found**: The Memos URL is incorrect or a linked memo was deleted.
+- **410 Gone for `/api/v1`**: Memos 26.10 removed the old API routes. Update the plugin to a version that supports `/api`, and ensure the reverse proxy routes `/api/*` to Memos.
 - **Network error**: The Memos instance is unreachable.
 - **Conflict detected**: Both the local plugin note and the remote memo changed since the last successful sync.
+- **Remote memo not found or inaccessible**: Verify the memo in Memos and check access before confirming deletion of its local note. If access returns, run sync again.
+- **A memo is not imported**: Confirm it is owned by the connected account, and check **Archived** and **Sync Log**. A sync tag is no longer required.
+- **Current user cannot be identified**: Ensure the server exposes the current-user endpoint and the token has access. Sync is stopped rather than risk changing another user's memos.
+- **Attachment cannot be opened**: Check authentication, host network permissions, and the proxy. The plugin refuses attachment redirects and HTML login pages; use the **Memos** link to find the memo in the service.
+- **Link preview unavailable**: The Memos server or proxy may not expose the link-metadata endpoint, or the target page may be unreachable. The original link still works; use **Retry** after a temporary failure.
+- **Upload outcome uncertain**: Check Memos for the attachment before removing and reattaching it. Legacy uploads are not repeated automatically after an uncertain result. A finalized but expired chunked session also requires checking Memos when its attachment cannot be retrieved.
+- **Live updates unavailable**: Check the `/api/sse` route and host streaming support. Automatic interval sync continues even when live events are unavailable.
 
 ## Resetting State
 

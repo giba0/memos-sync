@@ -1,4 +1,4 @@
-export type SyncState = 'linked' | 'dirty-local' | 'dirty-remote' | 'conflict' | 'unlinked';
+export type SyncState = 'linked' | 'dirty-local' | 'dirty-remote' | 'conflict' | 'unlinked' | 'remote-missing';
 
 export interface LocalAttachment {
   id: string;
@@ -7,6 +7,13 @@ export interface LocalAttachment {
   mimeType: string;
   size: number;
   base64Content?: string;
+  upload?: {
+    attachmentId: string;
+    uploadId?: string;
+    legacyUncertain?: boolean;
+    finalizing?: boolean;
+    committedSize?: number;
+  };
   remoteUrl?: string;
   createdAt: string;
 }
@@ -17,6 +24,9 @@ export interface LocalNote {
   createdAt: string;
   updatedAt: string;
   attachments: LocalAttachment[];
+  state?: 'NORMAL' | 'ARCHIVED';
+  pinned?: boolean;
+  visibility?: 'PRIVATE' | 'PROTECTED' | 'PUBLIC' | 'SPACE';
 }
 
 export interface SyncMapping {
@@ -28,6 +38,7 @@ export interface SyncMapping {
   lastSyncedContentHash: string;
   lastKnownLocalUpdatedAt: string;
   lastKnownMemoUpdatedAt: string;
+  lastSyncedSnapshotHash?: string;
 }
 
 export interface MappingStore {

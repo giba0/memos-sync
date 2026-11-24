@@ -1,4 +1,4 @@
-export type MemoVisibility = 'PRIVATE' | 'PROTECTED' | 'PUBLIC';
+export type MemoVisibility = 'PRIVATE' | 'PROTECTED' | 'PUBLIC' | 'SPACE';
 export type MemoState = 'NORMAL' | 'ARCHIVED';
 
 export interface MemoAttachment {
@@ -60,4 +60,11 @@ export interface ConnectionTestResult {
   ok: boolean;
   status: number;
   message: string;
+}
+
+export interface LinkMetadata {
+  url: string;
+  title: string;
+  description: string;
+  image: string;
 }
