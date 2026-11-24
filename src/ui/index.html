@@ -74,17 +74,6 @@
       overflow-y: auto;
     }
 
-    .brand {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--accent);
-    }
-    .brand svg { width: 28px; height: 28px; flex: none; }
-
     .search-box {
       margin-bottom: 24px;
     }
@@ -129,7 +118,6 @@
     .calendar-grid button.selected { background: var(--accent); color: var(--c-contrast, #fff); }
     .calendar-grid button.selected::after { background: var(--c-contrast, #fff); }
     .calendar-clear { margin-top: 6px; width: 100%; }
-    .active-tag { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
     dialog {
       width: min(440px, calc(100% - 32px)); max-height: calc(100% - 32px);
       overflow-y: auto; background: var(--ms-bg); color: var(--fg);
@@ -504,62 +492,190 @@
       .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 300px; }
       .main-content { padding: 24px; }
     }
+    [hidden] { display: none !important; }
+    .sidebar { gap: 12px; padding: 16px; width: 240px; min-width: 240px; }
+    .sidebar .nav-buttons { flex-direction: row; flex-wrap: wrap; margin: 0; gap: 4px; }
+    .sidebar .nav-buttons button { font-size: 12px; padding: 6px 8px; }
+    .sidebar .search-box, .sidebar .calendar { margin: 0; }
+    .sidebar details { padding: 8px 0; }
+    .sidebar summary { gap: 8px; }
+    .sidebar summary::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-right: 1px solid currentColor;
+      border-bottom: 1px solid currentColor;
+      transform: rotate(-45deg);
+    }
+    .sidebar details[open] > summary::before { transform: rotate(45deg); }
+    .sidebar .filter-bar button { padding: 5px 8px; font-size: 12px; }
+    .sidebar .tag-list:empty { display: none; }
+    .timeline-wrapper { gap: 18px; }
+    .composer { background: var(--sidebar-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+    .composer textarea { min-height: 40px; max-height: 40vh; }
+    .composer .attachment-list:empty { display: none; }
+    .composer-toolbar { margin-top: 8px; padding-top: 8px; gap: 8px; flex-wrap: wrap; }
+    .composer-meta:empty { display: none; }
+    .composer-actions { align-items: center; flex-wrap: wrap; flex: 1; }
+    #btn-save-note { margin-inline-start: auto; }
+    #btn-save-note kbd { margin-inline-start: 4px; font-size: 11px; }
+    .sidebar .nav-buttons button[aria-pressed="true"] { background: var(--card-bg-hover); color: var(--accent); }
+    #note-visibility { font-size: 13px; border: 1px solid var(--border); }
+    #btn-save-note:disabled { background: var(--ms-card-bg); color: var(--text-muted); border-color: var(--border); opacity: 1; }
+    #btn-attach { border: 1px solid var(--border); min-width: 32px; }
+    .composer-menu { position: relative; }
+    .timeline .dropdown-menu { min-width: 184px; padding: 5px; }
+    .timeline .menu-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      min-height: 30px;
+      padding: 5px 9px;
+      text-align: start;
+      font-size: 13px;
+      line-height: 1.25;
+      white-space: nowrap;
+    }
+    .timeline .menu-item:focus-visible { outline-offset: -2px; }
+    .timeline .menu-item[aria-pressed="true"] { background: var(--card-bg-hover); }
+    .timeline .menu-section { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; }
+    .timeline .menu-caption { padding: 4px 9px; color: var(--text-muted); font-size: 11px; }
+    .timeline .menu-check { color: var(--accent); }
+    .composer-menu .dropdown-menu { left: 0; right: auto; width: 190px; max-width: calc(100vw - 28px); }
+    .composer-menu .menu-item {
+      display: flex;
+      justify-content: flex-start;
+      text-align: left;
+      white-space: nowrap;
+      padding: 7px 10px;
+    }
+    .composer-menu .menu-item[aria-pressed="true"] { background: var(--card-bg-hover); }
+    #memo-reader { width: min(640px, calc(100% - 24px)); overflow-x: hidden; }
+    #memo-reader-title { overflow-wrap: anywhere; }
+    #memo-reader-body { margin-top: 12px; overflow-wrap: anywhere; }
+    #memo-reader-date { color: var(--text-muted); font-size: 12px; }
+    .memo-reader-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+    #link-memo-dialog {
+      width: min(460px, calc(100% - 24px));
+      max-height: calc(100% - 24px);
+      overflow: hidden;
+      padding: clamp(10px, 3vh, 18px);
+    }
+    #link-memo-dialog[open] {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #link-memo-dialog .dialog-header, #link-memo-search { flex: none; }
+    .memo-link-list {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 4px;
+      min-height: 0;
+      max-height: 320px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    #link-memo-dialog .memo-link-result {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 3px;
+      width: 100%;
+      min-width: 0;
+      text-align: left;
+      padding: 8px 10px;
+    }
+    .memo-link-result:focus-visible { outline-offset: -2px; }
+    .memo-link-result strong, .memo-link-result small {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .memo-link-result small, .memo-link-empty { color: var(--text-muted); }
+    .memo-links { display: flex; gap: 6px; flex-wrap: wrap; }
+    .memo-links:not(:empty) { margin-top: 8px; }
+    .memo-links button { font-size: 12px; }
+    #markup-dialog { width: min(1440px, calc(100% - 24px)); height: calc(100% - 24px); max-width: none; padding: 0; overflow: hidden; }
+    #markup-frame { display: block; width: 100%; height: 100%; border: 0; }
+    #attachment-preview audio { width: 100%; }
+    .composer.focus-mode { position: fixed; inset: 16px; z-index: 20; overflow: auto; }
+    .composer.focus-mode textarea { min-height: 50vh; max-height: none; }
+    .empty-timeline { border: 0; padding: 16px; }
+    .draft-image { width: 64px; height: 48px; object-fit: cover; border-radius: 5px; }
+    .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+    .shortcut-section { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 12px; }
+    .shortcut-section h3 { font-size: 14px; margin: 0 0 8px; }
+    .shortcut-section h4 { font-size: 12px; margin: 12px 0 4px; color: var(--text-muted); }
+    .shortcut-section dl { margin: 0; }
+    .shortcut-section dl > div { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; }
+    .shortcut-section dd { margin: 0; text-align: right; }
+    .shortcut-section kbd { white-space: nowrap; border: 1px solid var(--border); border-radius: 4px; padding: 2px 5px; }
+    .shortcut-section p { font-size: 12px; color: var(--text-muted); margin: 8px 0 0; }
+    #editor-feedback:empty { display: none; }
+    #editor-feedback { color: var(--text-muted); font-size: 12px; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    @media (max-width: 900px) { .sidebar { width: 100%; min-width: 0; } }
   </style>
 </head>
 <body>
   <div class="memos-layout">
     <aside class="sidebar">
-      <div class="brand"><!-- MEMOS_LOGO -->Memos Sync</div>
-      
-      <div class="search-box">
-        <input type="text" id="notes-search" placeholder="Search notes...">
-      </div>
-      <div id="active-tag" class="active-tag" hidden>
-        <span id="active-tag-label"></span>
-        <button id="clear-tag" class="btn-text" type="button" aria-label="Clear tag filter">✕</button>
-      </div>
-      <div class="filters">
-        <label for="notes-filter">Filter</label>
-        <select id="notes-filter">
-          <option value="all">All notes</option>
-          <option value="pinned">Pinned</option>
-          <option value="attachments">With attachments</option>
-        </select>
-        <label for="notes-sort">Sort by</label>
-        <select id="notes-sort">
-          <option value="createdAt">Creation date</option>
-          <option value="updatedAt">Update date</option>
-        </select>
-        <label for="notes-view">View</label>
-        <select id="notes-view">
-          <option value="timeline">Timeline</option>
-          <option value="calendar">Dates</option>
-        </select>
-        <div id="tag-list" class="tag-list" aria-label="Tags"></div>
-      </div>
-
       <div class="nav-buttons">
         <button id="btn-timeline" type="button" aria-pressed="true">Notes</button>
         <button id="btn-archived" type="button" aria-pressed="false">Archived</button>
-        <button id="btn-sync" class="primary">
-          <span class="btn-text-label">Sync Now</span>
-        </button>
         <button id="btn-settings" type="button" aria-haspopup="dialog">Settings</button>
       </div>
 
-      <section class="calendar" aria-label="Note calendar">
-        <div class="calendar-header">
-          <button id="calendar-prev" class="btn-text" type="button" aria-label="Previous month">‹</button>
-          <strong id="calendar-month"></strong>
-          <button id="calendar-next" class="btn-text" type="button" aria-label="Next month">›</button>
+      <div class="search-box">
+        <input type="text" id="notes-search" placeholder="Search notes… (/)" aria-label="Search notes">
+      </div>
+      <details>
+        <summary>Filters &amp; display</summary>
+        <div class="filters">
+          <label for="saved-filters">Saved filters</label>
+          <select id="saved-filters"><option value="">Choose a filter</option></select>
+          <div class="filter-bar">
+            <button id="save-filter" type="button">Save current</button>
+            <button id="remove-filter" type="button" disabled>Remove saved</button>
+          </div>
+          <label for="notes-filter">Filter</label>
+          <select id="notes-filter">
+            <option value="all">All notes</option>
+            <option value="pinned">Pinned</option>
+            <option value="attachments">With attachments</option>
+          </select>
+          <label for="notes-sort">Sort by</label>
+          <select id="notes-sort">
+            <option value="createdAt">Creation date</option>
+            <option value="updatedAt">Update date</option>
+          </select>
+          <label for="notes-view">Display</label>
+          <select id="notes-view">
+            <option value="timeline">Timeline</option>
+            <option value="calendar">Group by day</option>
+          </select>
         </div>
-        <div id="calendar-grid" class="calendar-grid"></div>
-        <button id="calendar-clear" class="btn-text calendar-clear" type="button" hidden>Show all dates</button>
-      </section>
+      </details>
+      <div id="tag-list" class="tag-list" aria-label="Tags"></div>
+      <details>
+        <summary>Calendar</summary>
+        <section class="calendar" aria-label="Note calendar">
+          <div class="calendar-header">
+            <button id="calendar-prev" class="btn-text" type="button" aria-label="Previous month">‹</button>
+            <strong id="calendar-month"></strong>
+            <button id="calendar-next" class="btn-text" type="button" aria-label="Next month">›</button>
+          </div>
+          <div id="calendar-grid" class="calendar-grid"></div>
+          <button id="calendar-clear" class="btn-text calendar-clear" type="button" hidden>Show all dates</button>
+        </section>
+      </details>
 
       <dialog id="settings-dialog" aria-labelledby="settings-title">
         <div class="dialog-header">
-          <h2 id="settings-title">Settings & Connection</h2>
+          <h2 id="settings-title">Settings</h2>
           <button id="btn-close-settings" type="button" class="btn-text" aria-label="Close settings">✕</button>
         </div>
         <div class="settings-form">
@@ -587,6 +703,61 @@
           </div>
           <div id="connection-status" class="status-msg"></div>
         </div>
+        <section class="shortcut-section" aria-labelledby="sync-title">
+          <h3 id="sync-title">Synchronization</h3>
+          <p id="sync-status" role="status">Sync</p>
+          <p id="last-sync"></p>
+          <button id="btn-sync" type="button"><span class="btn-text-label">Sync now</span></button>
+          <details>
+            <summary>Sync log</summary>
+            <div class="sync-log-content" id="sync-log"></div>
+          </details>
+        </section>
+        <section class="shortcut-section" aria-labelledby="shortcuts-title">
+          <h3 id="shortcuts-title">Keyboard shortcuts</h3>
+          <h4>Inside Memos Sync</h4>
+          <dl>
+            <div><dt>New memo</dt><dd><kbd data-primary-key="N"></kbd></dd></div>
+            <div><dt>Save from the editor</dt><dd><kbd data-primary-key="Enter"></kbd></dd></div>
+            <div><dt>Insert a line break</dt><dd><kbd>Shift + Enter</kbd></dd></div>
+            <div><dt>Search outside text fields</dt><dd><kbd>/</kbd></dd></div>
+            <div><dt>Move from search to results</dt><dd><kbd>↓</kbd></dd></div>
+            <div><dt>Browse results or menu actions</dt><dd><kbd>↑</kbd> <kbd>↓</kbd></dd></div>
+            <div><dt>Edit a focused memo or run a menu action</dt><dd><kbd>Enter</kbd></dd></div>
+            <div><dt>Close a menu or leave the editor</dt><dd><kbd>Esc</kbd></dd></div>
+            <div><dt>Sync now</dt><dd><kbd data-primary-key="Shift + S"></kbd></dd></div>
+          </dl>
+          <h4>Super Productivity defaults</h4>
+          <dl>
+            <div><dt>Open Memos Sync</dt><dd><kbd>Ctrl + Alt + M</kbd></dd></div>
+            <div><dt>Create Memos Sync Note</dt><dd><kbd>Ctrl + Alt + Shift + N</kbd></dd></div>
+            <div><dt>Run Memos Sync</dt><dd><kbd>Ctrl + Alt + Shift + S</kbd></dd></div>
+          </dl>
+          <p>Host shortcuts such as Shift + T (Today) work from the memo list and other non-editable areas. Check Super Productivity’s keyboard settings for your current bindings.</p>
+        </section>
+      </dialog>
+      <dialog id="memo-reader" aria-labelledby="memo-reader-title">
+        <div class="dialog-header">
+          <h2 id="memo-reader-title">Linked memo</h2>
+          <button type="button" id="memo-reader-close" class="btn-text" aria-label="Close linked memo">✕</button>
+        </div>
+        <time id="memo-reader-date"></time>
+        <div id="memo-reader-body"></div>
+        <div class="memo-reader-actions">
+          <button type="button" id="memo-reader-back" class="btn-text">← Back</button>
+          <button type="button" id="memo-reader-edit" class="btn-text">Edit memo</button>
+        </div>
+      </dialog>
+      <dialog id="link-memo-dialog" aria-labelledby="link-memo-title">
+        <div class="dialog-header">
+          <h2 id="link-memo-title">Link memo</h2>
+          <button id="link-memo-close" class="btn-text" type="button" aria-label="Close">✕</button>
+        </div>
+        <input id="link-memo-search" type="text" aria-label="Search memo content" placeholder="Search memo content">
+        <div id="link-memo-results" class="memo-link-list"></div>
+      </dialog>
+      <dialog id="markup-dialog" aria-label="Markup">
+        <iframe id="markup-frame" title="Excalidraw drawing editor" sandbox="allow-scripts allow-same-origin allow-modals"></iframe>
       </dialog>
       <dialog id="attachment-dialog" aria-labelledby="attachment-title">
         <div class="dialog-header">
@@ -597,10 +768,6 @@
         <a id="attachment-download" class="btn-text" download>Download</a>
       </dialog>
 
-      <details>
-        <summary>Sync Log</summary>
-        <div class="sync-log-content" id="sync-log"></div>
-      </details>
     </aside>
 
     <main class="main-content">
@@ -611,25 +778,46 @@
         </div>
 
         <div class="composer">
-          <textarea id="note-editor" placeholder="What's on your mind?"></textarea>
+          <textarea id="note-editor" aria-label="Memo" placeholder="What's on your mind?"></textarea>
+          <div id="editor-preview" class="timeline-content" hidden></div>
           <div class="composer-toolbar">
             <div class="composer-meta" id="selected-note-meta"></div>
             <div class="composer-actions">
               <input type="file" id="attachment-input" style="display:none" multiple>
-              <button id="btn-attach" class="btn-text" title="Attach file" aria-label="Attach file">📎</button>
-              <button id="btn-cancel" class="btn-text" style="display: none;">Cancel</button>
-              <button id="btn-save-note" class="primary"><span class="save-label">Save</span></button>
+              <div class="composer-menu">
+                <button id="btn-attach" class="btn-text" type="button" aria-label="Add to memo" aria-expanded="false" aria-controls="composer-menu">＋</button>
+                <div id="composer-menu" class="dropdown-menu">
+                  <button class="menu-item" type="button" data-action="file">Attach file</button>
+                  <button class="menu-item" type="button" data-action="image">Add image</button>
+                  <button class="menu-item" type="button" data-action="markup">Markup</button>
+                  <button class="menu-item" type="button" data-action="link">Link memo</button>
+                  <button class="menu-item" type="button" data-action="preview">Markdown preview</button>
+                  <button class="menu-item" type="button" data-action="focus">Focus mode</button>
+                </div>
+              </div>
+              <div class="composer-menu">
+                <button type="button" id="note-visibility" class="btn-text" aria-expanded="false" aria-controls="visibility-menu" aria-label="Memo visibility: Only me" value="PRIVATE">Only me ▾</button>
+                <div id="visibility-menu" class="dropdown-menu" aria-label="Memo visibility">
+                  <button type="button" class="menu-item" data-visibility="PRIVATE">Only me</button>
+                  <button type="button" class="menu-item" data-visibility="PROTECTED">Signed-in users</button>
+                  <button type="button" class="menu-item" data-visibility="PUBLIC">Public</button>
+                </div>
+              </div>
+              <button id="btn-cancel" class="btn-text" style="display: none;">Discard edit</button>
+              <button id="btn-save-note" class="primary"><span class="save-label">Save</span> <kbd id="save-shortcut"></kbd></button>
             </div>
           </div>
+          <div id="editor-feedback" role="status"></div>
+          <div id="editor-links" class="memo-links" aria-label="Linked memos"></div>
           <div id="editor-attachments" class="attachment-list"></div>
         </div>
 
-        <div class="timeline" id="notes-list"></div>
+        <div id="filter-bar" class="filter-bar" aria-label="Active filters" hidden></div>
+        <div class="timeline" id="notes-list" aria-label="Memos"></div>
       </div>
     </main>
   </div>
 
-  <!-- MARKDOWN_SCRIPT -->
   <script>
     const plugin = window.parent.__memosSyncPlugin;
 
@@ -857,7 +1045,240 @@
     let selectedDate = null;
     let selectedTag = null;
     let showArchived = false;
-    let draftAttachments = [];
+    // The plugin host outlives the iframe when the user changes views.
+    const drafts = plugin?.getComposerDrafts() || new Map();
+    const composer = noteEditorEl.closest('.composer');
+    const composerMenu = document.getElementById('composer-menu');
+    const linkDialog = document.getElementById('link-memo-dialog');
+    const linkSearch = document.getElementById('link-memo-search');
+    const linkResults = document.getElementById('link-memo-results');
+
+    function memoTargets(state) {
+      const notes = new Map(state.notes.map((note) => [note.id, note]));
+      const targets = new Map();
+      for (const mapping of state.mappingStore.mappings) {
+        const note = notes.get(mapping.localNoteId);
+        if (note && mapping.state !== 'remote-missing') targets.set('memos/' + mapping.memoId, note);
+      }
+      return targets;
+    }
+
+    function renderMemoLinks(note, linkTargets) {
+      return (note.relatedMemoNames?.length ? '<div class="memo-links" aria-label="Linked memos">' +
+            note.relatedMemoNames.map((name) => {
+              const target = linkTargets.get(name);
+              return target
+                ? '<button type="button" data-linked-note="' + escapeHtml(target.id) + '">' + escapeHtml(memoLinkTitle(target)) + '</button>'
+                : '<span>' + escapeHtml(name) + '</span>';
+            }).join('') + '</div>' : '');
+    }
+
+    function memoLinkLines(note) {
+      return (note?.content || '').split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !/^(?:`{3,}|~{3,})/.test(line));
+    }
+
+    function memoLinkTitle(note, lines = memoLinkLines(note)) {
+      return lines[0]?.replace(/^#+\s+/, '').slice(0, 160) || 'Untitled memo';
+    }
+
+    function renderLinkPicker() {
+      const targets = memoTargets(currentState());
+      const draft = drafts.get(draftKey);
+      const query = linkSearch.value.trim().toLowerCase();
+      linkResults.replaceChildren();
+      for (const [name, note] of targets) {
+        if (note.id === draftKey || draft.relatedMemoNames.includes(name) || !note.content.toLowerCase().includes(query)) continue;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'memo-link-result';
+        const title = document.createElement('strong');
+        const lines = memoLinkLines(note);
+        title.textContent = memoLinkTitle(note, lines);
+        const detail = document.createElement('small');
+        const excerpt = lines.slice(1).join(' ').slice(0, 160);
+        detail.textContent = new Date(note.createdAt).toLocaleDateString() + (excerpt ? ' · ' + excerpt : '');
+        button.append(title, detail);
+        button.onclick = () => {
+          if (drafts.get(draftKey) !== draft) return;
+          draft.relatedMemoNames.push(name);
+          draft.dirty = true;
+          linkDialog.close();
+          loadUI();
+        };
+        linkResults.append(button);
+        if (linkResults.children.length >= 60) break;
+      }
+      if (!linkResults.children.length) {
+        const empty = document.createElement('div');
+        empty.className = 'memo-link-empty';
+        empty.textContent = query ? 'No matching memos.' : 'No other synced memos available to link.';
+        linkResults.append(empty);
+      }
+    }
+
+    function openLinkPicker() {
+      if (!plugin || !drafts.has(draftKey) || savingNote) return;
+      linkSearch.value = '';
+      renderLinkPicker();
+      linkDialog.showModal();
+      linkSearch.focus();
+    }
+
+    document.getElementById('link-memo-close').onclick = () => linkDialog.close();
+    linkDialog.addEventListener('close', () => (noteEditorEl.hidden ? btnAttach : noteEditorEl).focus());
+    linkSearch.addEventListener('input', renderLinkPicker);
+    linkDialog.addEventListener('keydown', (event) => {
+      const options = Array.from(linkResults.querySelectorAll('button'));
+      const index = options.indexOf(event.target);
+      if (event.key === 'ArrowDown') options[index + 1]?.focus();
+      else if (event.key === 'ArrowUp' && index >= 0) (options[index - 1] || linkSearch).focus();
+      else if (event.key === 'Enter' && event.target === linkSearch) options[0]?.click();
+      else return;
+      event.preventDefault();
+    });
+
+    function draftMemoLinks(state, draft) {
+      const container = document.getElementById('editor-links');
+      const targets = memoTargets(state);
+      container.replaceChildren();
+      for (const name of draft.relatedMemoNames) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = (targets.has(name) ? memoLinkTitle(targets.get(name)) : name) + ' ×';
+        remove.setAttribute('aria-label', 'Remove link to ' + remove.textContent.slice(0, -2));
+        remove.onclick = () => {
+          if (savingNote) return;
+          draft.relatedMemoNames = draft.relatedMemoNames.filter((item) => item !== name);
+          draft.dirty = true;
+          loadUI();
+          (noteEditorEl.hidden ? btnAttach : noteEditorEl).focus();
+        };
+        container.append(remove);
+      }
+    }
+
+    const markupDialog = document.getElementById('markup-dialog');
+    const markupFrame = document.getElementById('markup-frame');
+
+    async function openMarkup({ image, scene, filename, replaceIds = [] } = {}) {
+      if (!plugin || readingFiles || savingNote || markupDialog.open) return;
+      const draft = drafts.get(draftKey);
+      const close = () => {
+        markupDialog.close();
+        markupFrame.onload = null;
+        markupFrame.removeAttribute('srcdoc');
+        (noteEditorEl.hidden ? btnAttach : noteEditorEl).focus();
+      };
+      markupFrame.onload = () => {
+        const editor = markupFrame.contentWindow;
+        if (!editor?.startMarkup) {
+          close();
+          feedback.textContent = 'Could not load the drawing editor.';
+          return;
+        }
+        void editor.startMarkup({
+          image,
+          scene,
+          theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+          onAdd: async (png, sceneFile) => {
+            const basename = filename?.replace(/\.excalidraw$/i, '') || 'drawing-' + Date.now();
+            const files = [
+              new File([png], basename + '.png', { type: 'image/png' }),
+              new File([sceneFile], basename + '.excalidraw', { type: 'application/json' }),
+            ];
+            if (drafts.get(draftKey) !== draft || !await addFiles(files, replaceIds)) {
+              throw new Error('The drawing could not be saved to this memo draft.');
+            }
+          },
+          onClose: close,
+        });
+        markupFrame.focus();
+      };
+      markupDialog.showModal();
+      try {
+        markupFrame.srcdoc = await plugin.getMarkupDocument();
+      } catch (error) {
+        close();
+        feedback.textContent = 'Could not load the drawing editor: ' + error.message;
+      }
+    }
+
+    markupDialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      markupFrame.contentDocument?.getElementById('close')?.click();
+    });
+
+    const editorPreview = document.getElementById('editor-preview');
+    const visibilityEl = document.getElementById('note-visibility');
+    const visibilityMenu = document.getElementById('visibility-menu');
+    const visibilityLabels = { PRIVATE: 'Only me', PROTECTED: 'Signed-in users', PUBLIC: 'Public', SPACE: 'Space' };
+
+    function updateVisibility(value) {
+      visibilityEl.value = value;
+      visibilityEl.textContent = visibilityLabels[value] + (value === 'SPACE' ? '' : ' ▾');
+      visibilityEl.setAttribute('aria-label', 'Memo visibility: ' + visibilityLabels[value]);
+      for (const button of visibilityMenu.querySelectorAll('button')) {
+        button.setAttribute('aria-pressed', String(button.dataset.visibility === value));
+      }
+    }
+
+    function setVisibilityMenu(open, restoreFocus = false) {
+      visibilityMenu.classList.toggle('show', open);
+      visibilityEl.setAttribute('aria-expanded', String(open));
+      if (open) {
+        closeNoteMenus();
+        setComposerMenu(false);
+        visibilityMenu.querySelector('[aria-pressed="true"]')?.focus();
+      }
+      if (restoreFocus) visibilityEl.focus();
+    }
+
+    visibilityEl.addEventListener('click', () => {
+      const open = visibilityMenu.classList.contains('show');
+      setVisibilityMenu(!open, open);
+    });
+    visibilityMenu.addEventListener('click', (event) => {
+      const value = event.target.closest('button')?.dataset.visibility;
+      if (!value) return;
+      updateVisibility(value);
+      rememberDraft();
+      setVisibilityMenu(false, true);
+    });
+
+    const feedback = document.getElementById('editor-feedback');
+    const isMac = navigator.platform.toLowerCase().includes('mac');
+    document.getElementById('save-shortcut').textContent = isMac ? '⌘↵' : 'Ctrl+↵';
+    let draftKey = null;
+    let readingFiles = false;
+    let savingNote = false;
+    let saveFeedbackTimer;
+    for (const key of document.querySelectorAll('[data-primary-key]')) {
+      key.textContent = (isMac ? '⌘ + ' : 'Ctrl + ') + key.dataset.primaryKey;
+    }
+
+    function rememberDraft() {
+      const draft = drafts.get(draftKey);
+      if (draft) {
+        draft.text = noteEditorEl.value;
+        draft.visibility = visibilityEl.value;
+        draft.dirty = true;
+      }
+    }
+
+    function updateComposer() {
+      noteEditorEl.style.height = 'auto';
+      noteEditorEl.style.height = noteEditorEl.scrollHeight + 'px';
+      const draft = drafts.get(draftKey);
+      btnSaveNote.disabled = savingNote || readingFiles || (!noteEditorEl.value.trim() && !draft?.attachments.length
+        && !selectedNote(currentState())?.attachments.some((item) => !draft?.removed.includes(item.id)));
+    }
+
+    noteEditorEl.addEventListener('input', () => {
+      rememberDraft();
+      updateComposer();
+    });
     
     const btnCancel = document.getElementById('btn-cancel');
     const btnSaveNote = document.getElementById('btn-save-note');
@@ -904,16 +1325,18 @@
         autoSyncIntervalEl.value = String(Math.max(1, Math.round((state.config.pollIntervalMs || 300000) / 60000)));
       }
 
+      renderFilterBar();
       renderCalendar(state);
       renderNotes(state);
       renderEditor(state);
       updateUploadProgress();
       renderConflicts(state);
       renderLog(state.syncLog || []);
+      renderSyncStatus(state);
 
       if (state.composeRequestId && state.composeRequestId !== lastComposeRequestId) {
         lastComposeRequestId = state.composeRequestId;
-        draftAttachments = [];
+        setPreview(false);
         renderEditor(state);
         requestAnimationFrame(() => {
           noteEditorEl.focus();
@@ -940,16 +1363,19 @@
       }
     }
 
-    function renderAttachmentList(attachments, removable, noteId) {
+    function renderAttachmentList(attachments, removable, noteId, showPreview = true) {
       if (!attachments || attachments.length === 0) {
         return '';
       }
 
       return attachments.map((attachment) => {
-        const image = !removable && /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.mimeType);
+        const drawing = /\.excalidraw$/i.test(attachment.filename);
+        const audio = /^audio\/[\w.+-]+$/i.test(attachment.mimeType);
+        const image = showPreview && !removable && /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.mimeType);
         const action = removable
-          ? '<button class="btn-icon danger-text" onclick="window.removeAttachmentQuick(\'' + attachment.id + '\')" title="Remove attachment">🗑️</button>'
-          : '<button type="button" class="btn-text open-attachment" data-note-id="' + escapeHtml(noteId) + '" data-attachment-id="' + escapeHtml(attachment.id) + '">Open</button>' +
+          ? (drawing ? '<button type="button" class="btn-text edit-draft-drawing" data-attachment-id="' + escapeHtml(attachment.id) + '">Edit drawing</button>' : '') +
+            '<button class="btn-icon danger-text" onclick="window.removeAttachmentQuick(\'' + attachment.id + '\')" title="Remove attachment">🗑️</button>'
+          : '<button type="button" class="btn-text open-attachment" data-note-id="' + escapeHtml(noteId) + '" data-attachment-id="' + escapeHtml(attachment.id) + '">' + (drawing ? 'Edit drawing' : audio ? 'Play' : 'Open') + '</button>' +
             (memosHomeUrl() ? '<a class="btn-text" target="_blank" rel="noopener noreferrer" href="' + escapeHtml(memosHomeUrl()) + '">Memos</a>' : '');
         return (image ? '<div class="attachment-image-wrap"><button type="button" class="attachment-image-button open-attachment" data-note-id="' + escapeHtml(noteId) + '" data-attachment-id="' + escapeHtml(attachment.id) + '" aria-label="Open ' + escapeHtml(attachment.filename) + '"><span class="image-preview-placeholder preview-error" data-note-id="' + escapeHtml(noteId) + '" data-attachment-id="' + escapeHtml(attachment.id) + '" data-mime-type="' + escapeHtml(attachment.mimeType) + '" data-filename="' + escapeHtml(attachment.filename) + '">Loading image...</span></button>' : '') +
           '<div class="attachment-chip">' +
@@ -1020,7 +1446,7 @@
       const tags = new Set();
       for (const note of allNotes) {
         if ((note.state === 'ARCHIVED') !== showArchived) continue;
-        for (const match of (note.content || '').matchAll(/(^|\s)(#[\p{L}\p{N}_-]+)/gu)) {
+        for (const match of (note.content || '').matchAll(/(^|\s)(#[\p{L}\p{N}_-]+(?:\/[\p{L}\p{N}_-]+)*)/gu)) {
           tags.add(match[2]);
         }
       }
@@ -1030,7 +1456,7 @@
       const filteredNotes = sortedNotes.filter((note) => {
         if ((note.state === 'ARCHIVED') !== showArchived) return false;
         if (selectedDate && localDateKey(new Date(note.createdAt)) !== selectedDate) return false;
-        if (selectedTag && !(note.content || '').match(/(^|\s)#[\p{L}\p{N}_-]+/gu)?.some((tag) => tag.trim() === selectedTag)) return false;
+        if (selectedTag && !(note.content || '').match(/(^|\s)#[\p{L}\p{N}_-]+(?:\/[\p{L}\p{N}_-]+)*/gu)?.some((tag) => tag.trim() === selectedTag)) return false;
         if (notesFilterEl.value === 'pinned' && !note.pinned) return false;
         if (notesFilterEl.value === 'attachments' && !(note.attachments || []).length) return false;
         if (!searchTerm) return true;
@@ -1043,6 +1469,8 @@
         return;
       }
 
+      const linkTargets = memoTargets(state);
+      const focusedCard = document.activeElement.closest('.timeline-card')?.dataset.noteId;
       let previousDate = null;
       notesListEl.innerHTML = filteredNotes.map((note) => {
         const isActive = note.id === state.selectedNoteId;
@@ -1051,57 +1479,87 @@
           ? '<h2 class="date-heading">' + escapeHtml(new Date(note.createdAt).toLocaleDateString(undefined, { dateStyle: 'full' })) + '</h2>'
           : '';
         previousDate = key;
-        return heading + '<div class="timeline-card ' + (isActive ? 'active-card' : '') + '" id="card-' + note.id + '">' +
+        return heading + '<div class="timeline-card ' + (isActive ? 'active-card' : '') + '" tabindex="0" data-note-id="' + note.id + '" id="card-' + note.id + '">' +
           '<div class="timeline-meta">' +
             '<span class="date" title="' + new Date(note.createdAt).toLocaleString() + '">' + (note.pinned ? '📌 ' : '') + formatTimeAgo(note.createdAt) + '</span>' +
             '<div class="dropdown">' +
-              '<button class="btn-icon" onclick="toggleDropdown(event, \'dropdown-' + note.id + '\')">⋯</button>' +
+              '<button class="btn-icon" type="button" aria-label="Memo actions" aria-expanded="false" onclick="toggleDropdown(event, \'dropdown-' + note.id + '\')">⋯</button>' +
               '<div class="dropdown-menu" id="dropdown-' + note.id + '">' +
                 '<button class="menu-item" onclick="window.selectNote(\'' + note.id + '\')">Edit</button>' +
                 '<button class="menu-item" onclick="window.togglePinned(\'' + note.id + '\')">' + (note.pinned ? 'Unpin' : 'Pin') + '</button>' +
                 '<button class="menu-item" onclick="window.toggleArchived(\'' + note.id + '\')">' + (showArchived ? 'Unarchive' : 'Archive') + '</button>' +
-                (note.visibility === 'SPACE' ? '<span class="menu-item">Visibility: Space (read-only)</span>' :
-                  ['PRIVATE', 'PROTECTED', 'PUBLIC'].map((visibility) =>
-                    '<button class="menu-item" onclick="window.setVisibility(\'' + note.id + '\', \'' + visibility + '\')">' +
-                    ((note.visibility || 'PRIVATE') === visibility ? '✓ ' : '') + visibility.toLowerCase() + '</button>').join('')) +
-                '<button class="menu-item danger-text" onclick="window.deleteNoteQuick(\'' + note.id + '\')">Delete</button>' +
+                '<div class="menu-section" role="group" aria-label="Visibility">' +
+                  '<div class="menu-caption">Visibility</div>' +
+                  (note.visibility === 'SPACE' ? '<div class="menu-caption">Space (read-only)</div>' :
+                    [['PRIVATE', 'Only me'], ['PROTECTED', 'Signed-in users'], ['PUBLIC', 'Public']].map(([visibility, label]) => {
+                      const active = (note.visibility || 'PRIVATE') === visibility;
+                      return '<button type="button" class="menu-item" aria-pressed="' + active +
+                        '" onclick="window.setVisibility(\'' + note.id + '\', \'' + visibility + '\')"><span>' + label + '</span>' +
+                        (active ? '<span class="menu-check" aria-hidden="true">✓</span>' : '') + '</button>';
+                    }).join('')) +
+                '</div>' +
+                '<div class="menu-section"><button type="button" class="menu-item danger-text" onclick="window.deleteNoteQuick(\'' + note.id + '\')">Delete memo</button></div>' +
               '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="timeline-content">' + window.memosMarkdown.renderMarkdown(note.content || '', note.id) + '</div>' +
+          '<div class="timeline-content">' + plugin.renderMarkdown(note.content || '', note.id) + '</div>' +
+          renderMemoLinks(note, linkTargets) +
           (note.attachments && note.attachments.length
             ? '<div class="timeline-attachments">' + renderAttachmentList(note.attachments, false, note.id) + '</div>'
             : '') +
         '</div>';
       }).join('');
+      if (focusedCard) document.getElementById('card-' + focusedCard)?.focus({ preventScroll: true });
       preparePreviews(state);
     }
 
     function renderEditor(state) {
       const note = selectedNote(state);
-      
-      if (!note) {
-        selectedMetaEl.textContent = '';
-        if (document.activeElement !== noteEditorEl) {
-          noteEditorEl.value = '';
-        }
-        noteEditorEl.placeholder = "What's on your mind?";
-        noteEditorEl.dataset.mode = 'quick';
-        btnCancel.style.display = 'none';
-        saveLabel.textContent = 'Save';
-        editorAttachmentsEl.innerHTML = renderAttachmentList(draftAttachments, true);
-        return;
+      const key = note?.id || 'new';
+      const changed = key !== draftKey;
+      draftKey = key;
+      const previous = drafts.get(key);
+      if (!previous || (note && !previous.dirty && previous.originalUpdatedAt !== note.updatedAt)) {
+        drafts.set(key, {
+          text: note?.content || '', visibility: note?.visibility || 'PRIVATE',
+          attachments: [], removed: [], relatedMemoNames: [...(note?.relatedMemoNames || [])], originalUpdatedAt: note?.updatedAt, dirty: false,
+        });
       }
+      const draft = drafts.get(key);
+      if (changed || previous !== draft || document.activeElement !== noteEditorEl) {
+        noteEditorEl.value = draft.text;
+        updateVisibility(draft.visibility);
+      }
+      if (changed) setPreview(false);
+      visibilityEl.disabled = savingNote || note?.visibility === 'SPACE';
+      selectedMetaEl.textContent = note ? 'Editing memo' : '';
+      noteEditorEl.placeholder = note ? 'Edit memo…' : 'What’s on your mind?';
+      btnCancel.style.display = note ? 'inline-flex' : 'none';
+      const attachments = (note?.attachments || []).filter((item) => !draft.removed.includes(item.id));
+      draftMemoLinks(state, draft);
+      editorAttachmentsEl.innerHTML = renderAttachmentList([...attachments, ...draft.attachments], true);
+      draft.attachments.forEach((attachment) => {
+        if (!/^image\/(png|jpeg|gif|webp)$/i.test(attachment.mimeType)) return;
+        const image = document.createElement('img');
+        image.className = 'draft-image';
+        image.alt = attachment.filename;
+        image.src = 'data:' + attachment.mimeType + ';base64,' + attachment.base64Content;
+        editorAttachmentsEl.append(image);
+      });
+      updateComposer();
+    }
 
-      noteEditorEl.dataset.mode = 'edit';
-      selectedMetaEl.textContent = 'Created ' + new Date(note.createdAt).toLocaleString();
-      if (document.activeElement !== noteEditorEl) {
-        noteEditorEl.value = note.content;
-      }
-      noteEditorEl.placeholder = "Edit note...";
-      btnCancel.style.display = 'inline-flex';
-      saveLabel.textContent = 'Save';
-      editorAttachmentsEl.innerHTML = renderAttachmentList(note.attachments || [], true);
+    function renderSyncStatus(state) {
+      const mappings = state.mappingStore.mappings;
+      const last = state.mappingStore.lastFullSyncAt;
+      const failed = state.syncLog?.[0]?.results.some((result) => result.action === 'error');
+      document.getElementById('btn-sync').disabled = state.isSyncRunning;
+      document.getElementById('sync-status').textContent = !state.config.memosBaseUrl || !state.config.memosApiToken
+        ? 'Sync setup needed'
+        : mappings.some((mapping) => ['conflict', 'remote-missing'].includes(mapping.state))
+          ? 'Sync needs attention'
+          : state.isSyncRunning ? 'Syncing…' : failed ? 'Sync error' : state.hasPendingChanges ? 'Changes pending' : last ? 'Synced' : 'Sync';
+      document.getElementById('last-sync').textContent = last ? 'Last sync · ' + new Date(last).toLocaleString() : 'No completed sync yet';
     }
 
     function renderConflicts(state) {
@@ -1182,20 +1640,37 @@
       return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
     }
 
-    function toggleDropdown(event, id) {
-      event.stopPropagation();
-      document.querySelectorAll('.dropdown-menu.show').forEach(m => {
-        if (m.id !== id) m.classList.remove('show');
-      });
-      document.getElementById(id).classList.toggle('show');
+    function closeNoteMenu(menu) {
+      menu.classList.remove('show');
+      menu.previousElementSibling.setAttribute('aria-expanded', 'false');
     }
 
-    document.addEventListener('click', () => {
-      document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
-    });
+    function closeNoteMenus(except) {
+      document.querySelectorAll('.timeline .dropdown-menu.show').forEach((menu) => {
+        if (menu !== except) closeNoteMenu(menu);
+      });
+    }
+
+    function toggleDropdown(event, id) {
+      event.stopPropagation();
+      const menu = document.getElementById(id);
+      const trigger = event.currentTarget;
+      closeNoteMenus(menu);
+      setComposerMenu(false);
+      setVisibilityMenu(false);
+      if (menu.classList.contains('show')) {
+        closeNoteMenu(menu);
+      } else {
+        menu.classList.add('show');
+        trigger.setAttribute('aria-expanded', 'true');
+        menu.querySelector('button')?.focus();
+      }
+    }
+
+    document.addEventListener('click', () => closeNoteMenus());
 
     window.selectNote = function(noteId) {
-      if (!plugin) return;
+      if (!plugin || savingNote) return;
       plugin.selectNote(noteId);
       loadUI();
       noteEditorEl.focus();
@@ -1245,13 +1720,12 @@
 
     window.removeAttachmentQuick = function(attachmentId) {
       if (!plugin) return;
-      const state = currentState();
-      if (!state) return;
-      if (state.selectedNoteId) {
-        plugin.removeAttachment(state.selectedNoteId, attachmentId);
-      } else {
-        draftAttachments = draftAttachments.filter((attachment) => attachment.id !== attachmentId);
-      }
+      if (savingNote) return;
+      const draft = drafts.get(draftKey);
+      if (!draft) return;
+      draft.attachments = draft.attachments.filter((attachment) => attachment.id !== attachmentId);
+      if (!attachmentId.startsWith('draft_')) draft.removed.push(attachmentId);
+      draft.dirty = true;
       loadUI();
     };
 
@@ -1326,107 +1800,174 @@
       statusEl.textContent = result.message;
     });
 
-    const newButton = document.getElementById('btn-new');
-    if (newButton) {
-      newButton.addEventListener('click', () => {
-        if (!plugin) return;
-        plugin.startNewNote();
-        noteEditorEl.value = '';
-        editorAttachmentsEl.innerHTML = '';
-        loadUI();
-        noteEditorEl.focus();
-      });
+    function setPreview(enabled) {
+      composerMenu.querySelector('[data-action=preview]').textContent = enabled ? 'Back to writing' : 'Markdown preview';
+      editorPreview.hidden = !enabled;
+      noteEditorEl.hidden = enabled;
+      if (enabled) {
+        const preview = document.createElement('div');
+        preview.innerHTML = plugin.renderMarkdown(noteEditorEl.value, 'draft');
+        preview.querySelectorAll('input').forEach((input) => { input.disabled = true; });
+        editorPreview.replaceChildren(preview);
+      }
     }
 
-    btnSaveNote.addEventListener('click', () => {
-      if (!plugin) return;
-      const text = noteEditorEl.value.trim();
-      if (!text) return;
-
-      if (noteEditorEl.dataset.mode === 'quick') {
-        plugin.createNote();
-        const state = currentState();
-        if (state && state.selectedNoteId) {
-          plugin.updateNote(state.selectedNoteId, text);
-          for (const attachment of draftAttachments) {
-            const { id, ...data } = attachment;
-            plugin.addAttachment(state.selectedNoteId, data);
-          }
-          draftAttachments = [];
-          deselectNote();
-        }
-      } else {
-        const state = currentState();
-        if (state && state.selectedNoteId) {
-          plugin.updateNote(state.selectedNoteId, text);
-          deselectNote();
-        }
+    function setComposerMenu(open, restoreFocus = false) {
+      composerMenu.classList.toggle('show', open);
+      btnAttach.setAttribute('aria-expanded', String(open));
+      if (open) {
+        closeNoteMenus();
+        setVisibilityMenu(false);
+        composerMenu.querySelector('button').focus();
       }
+      if (restoreFocus) btnAttach.focus();
+    }
 
-      noteEditorEl.value = '';
-      noteEditorEl.blur();
-      editorAttachmentsEl.innerHTML = '';
-      loadUI();
+    btnAttach.addEventListener('click', () => setComposerMenu(!composerMenu.classList.contains('show'), composerMenu.classList.contains('show')));
+    composerMenu.addEventListener('click', (event) => {
+      const action = event.target.closest('button')?.dataset.action;
+      if (!action) return;
+      setComposerMenu(false, true);
+      if (action === 'file' || action === 'image') {
+        attachmentInputEl.accept = action === 'image' ? 'image/*' : '';
+        attachmentInputEl.click();
+      } else if (action === 'markup') {
+        openMarkup();
+      } else if (action === 'link') {
+        openLinkPicker();
+      } else if (action === 'preview') {
+        setPreview(editorPreview.hidden);
+        if (editorPreview.hidden) noteEditorEl.focus();
+      } else {
+        composer.classList.toggle('focus-mode');
+        (noteEditorEl.hidden ? btnAttach : noteEditorEl).focus();
+      }
+    });
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.composer-menu')) {
+        setComposerMenu(false);
+        setVisibilityMenu(false);
+      }
+    });
+
+    btnSaveNote.addEventListener('click', async () => {
+      if (!plugin || btnSaveNote.disabled) return;
+      const savingKey = draftKey;
+      const draft = drafts.get(savingKey);
+      const text = draft.text.trim();
+      const note = selectedNote(currentState());
+      if (draft.visibility !== (note?.visibility || 'PRIVATE') && draft.visibility !== 'PRIVATE'
+        && !confirm('This changes who can read the memo in Memos. Continue?')) return;
+      savingNote = true;
+      noteEditorEl.readOnly = true;
+      visibilityEl.disabled = true;
+      updateComposer();
+      try {
+        await plugin.saveComposerNote(note?.id || null, text, draft.visibility, draft.attachments, draft.removed, draft.originalUpdatedAt, draft.relatedMemoNames);
+        drafts.delete(savingKey);
+        draftKey = null;
+        noteEditorEl.value = '';
+        attachmentInputEl.value = '';
+        setPreview(false);
+        composer.classList.remove('focus-mode');
+        loadUI();
+        feedback.textContent = 'Saved on this device';
+        clearTimeout(saveFeedbackTimer);
+        saveFeedbackTimer = setTimeout(() => {
+          if (feedback.textContent === 'Saved on this device') feedback.textContent = '';
+        }, 3000);
+        noteEditorEl.focus();
+      } catch (error) {
+        feedback.textContent = 'Could not save memo: ' + error.message;
+      } finally {
+        savingNote = false;
+        noteEditorEl.readOnly = false;
+        visibilityEl.disabled = selectedNote(currentState())?.visibility === 'SPACE';
+        updateComposer();
+      }
     });
 
     btnCancel.addEventListener('click', () => {
-      draftAttachments = [];
+      if (savingNote) return;
+      drafts.delete(draftKey);
       deselectNote();
       loadUI();
+      noteEditorEl.focus();
     });
 
-    btnAttach.addEventListener('click', () => {
-      attachmentInputEl.click();
-    });
-
-    attachmentInputEl.addEventListener('change', async (event) => {
-      if (!plugin) return;
-      const files = Array.from(event.target.files || []);
-      if (!files.length) return;
-
-      const state = currentState();
-      if (!state) return;
+    async function addFiles(files, replaceIds = []) {
+      if (!plugin || !files.length || readingFiles || savingNote) return false;
+      const draft = drafts.get(draftKey);
+      if (!draft) return;
+      readingFiles = true;
+      updateComposer();
+      feedback.textContent = 'Reading attachments…';
       try {
+        const incoming = [];
         for (const file of files) {
           const base64Content = await new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => {
-              const result = String(reader.result || '');
-              resolve(result.includes(',') ? result.split(',')[1] : result);
-            };
+            reader.onload = () => resolve(String(reader.result).split(',')[1]);
             reader.onerror = () => reject(reader.error);
             reader.readAsDataURL(file);
           });
-          const attachment = {
+          incoming.push({
+            id: 'draft_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2),
             name: '',
             filename: file.name,
             mimeType: file.type || 'application/octet-stream',
             size: file.size,
             base64Content,
-          };
-          if (state.selectedNoteId) {
-            plugin.addAttachment(state.selectedNoteId, attachment);
-          } else {
-            draftAttachments.push({ ...attachment, id: 'draft_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2) });
-          }
+          });
         }
+        draft.attachments = draft.attachments.filter((item) => !replaceIds.includes(item.id)).concat(incoming);
+        draft.removed = [...new Set([...draft.removed, ...replaceIds.filter((id) => !id.startsWith('draft_'))])];
+        draft.dirty = true;
+        feedback.textContent = '';
+        return true;
       } catch (error) {
-        alert('Could not read attachment: ' + (error instanceof Error ? error.message : String(error)));
+        feedback.textContent = 'Could not read attachment: ' + error.message;
+        return false;
+      } finally {
+        readingFiles = false;
+        loadUI();
+        if (drafts.get(draftKey) === draft && !noteEditorEl.hidden) noteEditorEl.focus();
       }
+    }
 
+    attachmentInputEl.addEventListener('change', (event) => {
+      const files = Array.from(event.target.files || []);
       attachmentInputEl.value = '';
-      loadUI();
+      void addFiles(files);
+    });
+    noteEditorEl.addEventListener('paste', (event) => {
+      const files = Array.from(event.clipboardData?.files || []).filter((file) => file.type.startsWith('image/'));
+      if (!files.length) return;
+      event.preventDefault();
+      void addFiles(files);
+    });
+    composer.addEventListener('dragover', (event) => {
+      if (event.dataTransfer.types.includes('Files')) event.preventDefault();
+    });
+    composer.addEventListener('drop', (event) => {
+      const files = Array.from(event.dataTransfer.files);
+      if (!files.length) return;
+      event.preventDefault();
+      void addFiles(files);
     });
 
     document.getElementById('btn-sync').addEventListener('click', async () => {
       if (!plugin) return;
-      const btnText = document.getElementById('btn-sync').querySelector('.btn-text-label');
+      const syncButton = document.getElementById('btn-sync');
+      const btnText = syncButton.querySelector('.btn-text-label');
+      syncButton.disabled = true;
       const originalText = btnText.textContent;
       btnText.textContent = 'Syncing...';
       try {
         await plugin.runSync();
       } finally {
         btnText.textContent = originalText;
+        syncButton.disabled = false;
         loadUI();
       }
     });
@@ -1449,13 +1990,15 @@
     }
     if (plugin) setInterval(() => {
       const state = currentState();
+      if (state) renderSyncStatus(state);
       if (state && state.stateRevision !== undefined && state.stateRevision !== lastStateRevision) {
         lastStateRevision = state.stateRevision;
-        if (state.composeRequestId && state.composeRequestId !== lastComposeRequestId) {
+        if (!savingNote && ((selectedNote(state)?.id || 'new') !== draftKey
+          || (state.composeRequestId && state.composeRequestId !== lastComposeRequestId))) {
           loadUI();
         } else {
           renderCalendar(state);
-          renderNotes(state);
+          if (!memoReader.open && !notesListEl.contains(document.activeElement)) renderNotes(state);
           renderConflicts(state);
           renderLog(state.syncLog || []);
         }
@@ -1470,7 +2013,7 @@
       if (!checkbox || !plugin) return;
       const note = currentState().notes.find((item) => item.id === checkbox.dataset.noteId);
       if (!note) return;
-      const content = window.memosMarkdown.toggleChecklistLine(note.content, Number(checkbox.dataset.line), checkbox.checked);
+      const content = plugin.toggleChecklistLine(note.content, Number(checkbox.dataset.line), checkbox.checked);
       if (content === null) {
         alert('Could not update this checklist item. Refresh the note and try again.');
       } else {
@@ -1482,22 +2025,120 @@
       const tag = event.target.closest('.note-tag');
       if (!tag) return;
       selectedTag = tag.dataset.tag;
-      document.getElementById('active-tag-label').textContent = selectedTag;
-      document.getElementById('active-tag').hidden = false;
       loadUI();
     }
+    function editDrawing(attachment, scene) {
+      const draft = drafts.get(draftKey);
+      const note = selectedNote(currentState());
+      const basename = attachment.filename.replace(/\.excalidraw$/i, '');
+      const paired = [...(note?.attachments || []), ...draft.attachments]
+        .filter((item) => item.filename === basename + '.png' && !draft.removed.includes(item.id));
+      const replaceIds = [attachment.id];
+      if (paired.length === 1) replaceIds.push(paired[0].id);
+      void openMarkup({ scene, filename: attachment.filename, replaceIds });
+    }
+
+    editorAttachmentsEl.addEventListener('click', async (event) => {
+      const button = event.target.closest('.edit-draft-drawing');
+      if (!button || savingNote || readingFiles) return;
+      const note = selectedNote(currentState());
+      const draft = drafts.get(draftKey);
+      const id = button.dataset.attachmentId;
+      const attachment = draft.attachments.find((item) => item.id === id)
+        || note?.attachments.find((item) => item.id === id);
+      if (!attachment) return;
+      button.disabled = true;
+      try {
+        const scene = id.startsWith('draft_')
+          ? new Blob([Uint8Array.from(atob(attachment.base64Content), (char) => char.charCodeAt(0))], { type: 'application/json' })
+          : await plugin.readAttachment(note.id, id);
+        if (drafts.get(draftKey) === draft) editDrawing(attachment, scene);
+      } catch (error) {
+        feedback.textContent = 'Could not open drawing: ' + error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
     notesListEl.addEventListener('click', selectTag);
-    notesListEl.addEventListener('click', async (event) => {
+    const memoReader = document.getElementById('memo-reader');
+    const memoReaderBody = document.getElementById('memo-reader-body');
+    const memoReaderClose = document.getElementById('memo-reader-close');
+    const readerHistory = [];
+    let readerOrigin;
+
+    function showLinkedMemo(noteId) {
+      const state = currentState();
+      const note = state?.notes.find((item) => item.id === noteId);
+      if (!note) return false;
+      document.getElementById('memo-reader-title').textContent = memoLinkTitle(note);
+      document.getElementById('memo-reader-date').textContent = new Date(note.createdAt).toLocaleString();
+      memoReaderBody.innerHTML = '<div class="timeline-content">' + plugin.renderMarkdown(note.content || '', note.id) +
+        '</div>' + renderMemoLinks(note, memoTargets(state)) +
+        renderAttachmentList(note.attachments, false, note.id, false);
+      memoReaderBody.querySelectorAll('input, .note-tag').forEach((element) => { element.disabled = true; });
+      memoReader.scrollTop = 0;
+      return true;
+    }
+
+    function followMemoLink(event) {
+      const link = event.target.closest('[data-linked-note]');
+      if (!link || savingNote || readerHistory.at(-1) === link.dataset.linkedNote) return;
+      if (!showLinkedMemo(link.dataset.linkedNote)) return;
+      if (!memoReader.open) {
+        readerOrigin = link;
+        memoReader.showModal();
+      }
+      readerHistory.push(link.dataset.linkedNote);
+      memoReaderClose.focus();
+    }
+
+    memoReaderClose.onclick = () => memoReader.close();
+    document.getElementById('memo-reader-back').onclick = () => {
+      readerHistory.pop();
+      while (readerHistory.length) {
+        if (showLinkedMemo(readerHistory.at(-1))) {
+          memoReaderClose.focus();
+          return;
+        }
+        readerHistory.pop();
+      }
+      memoReader.close();
+    };
+    document.getElementById('memo-reader-edit').onclick = () => {
+      const noteId = readerHistory.at(-1);
+      if (!noteId) return;
+      readerOrigin = null;
+      memoReader.close();
+      window.selectNote(noteId);
+    };
+    memoReader.addEventListener('close', () => {
+      readerHistory.length = 0;
+      if (readerOrigin?.isConnected) readerOrigin.focus({ preventScroll: true });
+      readerOrigin = null;
+    });
+    notesListEl.addEventListener('click', followMemoLink);
+    memoReaderBody.addEventListener('click', followMemoLink);
+
+    async function openAttachment(event) {
       const button = event.target.closest('.open-attachment');
-      if (!button || !plugin) return;
+      if (!button || !plugin || savingNote) return;
       const note = currentState().notes.find((item) => item.id === button.dataset.noteId);
       const attachment = note?.attachments.find((item) => item.id === button.dataset.attachmentId);
       if (!attachment) return;
       button.disabled = true;
       try {
         const content = await plugin.readAttachment(note.id, attachment.id);
+        if (/\.excalidraw$/i.test(attachment.filename)) {
+          readerOrigin = null;
+          if (memoReader.open) memoReader.close();
+          window.selectNote(note.id);
+          editDrawing(attachment, content);
+          return;
+        }
         const isImage = /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.mimeType);
-        const safeBlob = new Blob([content], { type: isImage ? attachment.mimeType : 'application/octet-stream' });
+        const isAudio = /^audio\/[\w.+-]+$/i.test(attachment.mimeType);
+        const safeBlob = new Blob([content], { type: isImage || isAudio ? attachment.mimeType : 'application/octet-stream' });
         if (attachmentObjectUrl) URL.revokeObjectURL(attachmentObjectUrl);
         attachmentObjectUrl = URL.createObjectURL(safeBlob);
         document.getElementById('attachment-title').textContent = attachment.filename;
@@ -1510,6 +2151,23 @@
           image.alt = attachment.filename;
           image.style.maxWidth = '100%';
           attachmentPreview.appendChild(image);
+          const annotate = document.createElement('button');
+          annotate.type = 'button';
+          annotate.textContent = 'Open in Markup';
+          annotate.onclick = () => {
+            readerOrigin = null;
+            attachmentDialog.close();
+            if (memoReader.open) memoReader.close();
+            window.selectNote(note.id);
+            openMarkup({ image: safeBlob });
+          };
+          attachmentPreview.appendChild(annotate);
+        }
+        if (isAudio) {
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.src = attachmentObjectUrl;
+          attachmentPreview.appendChild(audio);
         }
         if (!attachmentDialog.open) attachmentDialog.showModal();
       } catch (error) {
@@ -1517,37 +2175,162 @@
       } finally {
         button.disabled = false;
       }
-    });
+    }
+    notesListEl.addEventListener('click', openAttachment);
+    memoReaderBody.addEventListener('click', openAttachment);
     tagListEl.addEventListener('click', selectTag);
-    document.getElementById('clear-tag').addEventListener('click', () => {
-      selectedTag = null;
-      document.getElementById('active-tag').hidden = true;
+    const savedFilterEl = document.getElementById('saved-filters');
+    const removeFilter = document.getElementById('remove-filter');
+    const storageKey = 'memos-sync.saved-filters';
+    let savedFilters = [];
+    try {
+      const stored = JSON.parse(window.parent.localStorage.getItem(storageKey) || '[]');
+      if (Array.isArray(stored)) savedFilters = stored;
+    } catch { /* Storage can be unavailable in some hosts. */ }
+
+    function refreshSavedFilters() {
+      savedFilterEl.replaceChildren(new Option('Choose a filter', ''));
+      savedFilters.forEach((filter, index) => savedFilterEl.add(new Option(filter.name, String(index))));
+      removeFilter.disabled = true;
+    }
+    function persistFilters() {
+      try {
+        window.parent.localStorage.setItem(storageKey, JSON.stringify(savedFilters));
+      } catch {
+        feedback.textContent = 'Saved filters are available for this session only.';
+      }
+      refreshSavedFilters();
+    }
+    refreshSavedFilters();
+
+    document.getElementById('save-filter').addEventListener('click', () => {
+      const name = prompt('Name this filter')?.trim();
+      if (!name) return;
+      if (savedFilters.some((filter) => filter.name === name)) {
+        feedback.textContent = 'A saved filter already uses that name.';
+        return;
+      }
+      savedFilters.push({ name, search: notesSearchEl.value, tag: selectedTag, date: selectedDate, kind: notesFilterEl.value, archived: showArchived });
+      persistFilters();
+    });
+    savedFilterEl.addEventListener('change', () => {
+      const filter = savedFilters[savedFilterEl.value];
+      removeFilter.disabled = !filter;
+      if (!filter) return;
+      document.getElementById(filter.archived ? 'btn-archived' : 'btn-timeline').click();
+      notesSearchEl.value = filter.search;
+      notesFilterEl.value = filter.kind;
+      selectedTag = filter.tag;
+      selectedDate = filter.date;
       loadUI();
     });
+    removeFilter.addEventListener('click', () => {
+      if (!savedFilters[savedFilterEl.value]) return;
+      savedFilters.splice(Number(savedFilterEl.value), 1);
+      persistFilters();
+    });
 
-    window.addEventListener('keydown', async (event) => {
-      if (settingsDialog.open) return;
-      const isMac = navigator.platform.toLowerCase().includes('mac');
+    function renderFilterBar() {
+      const bar = document.getElementById('filter-bar');
+      const filters = [
+        [notesSearchEl.value.trim(), () => { notesSearchEl.value = ''; }],
+        [selectedTag, () => { selectedTag = null; }],
+        [selectedDate, () => { selectedDate = null; }],
+        [notesFilterEl.value !== 'all' && notesFilterEl.selectedOptions[0]?.text, () => { notesFilterEl.value = 'all'; }],
+      ];
+      bar.replaceChildren();
+      for (const [label, clear] of filters) {
+        if (!label) continue;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label + ' ×';
+        button.setAttribute('aria-label', 'Remove filter: ' + label);
+        button.onclick = () => {
+          clear();
+          loadUI();
+          notesSearchEl.focus();
+        };
+        bar.appendChild(button);
+      }
+      bar.hidden = !bar.children.length;
+    }
+
+    function forwardHostShortcut(event) {
+      if (!event.key || event.key === 'Dead' || event.key === 'Process'
+        || ['Shift', 'Control', 'Alt', 'Meta', 'AltGraph'].includes(event.key)
+        || event.getModifierState('AltGraph')
+        || event.target.closest('input, textarea, select, [contenteditable]')) return;
+      // The host listens on its document. Dispatch from the iframe element so
+      // the event follows that same path and uses the host's configured bindings.
+      const frame = window.frameElement;
+      if (!frame) return;
+      const hostEvent = new window.parent.KeyboardEvent('keydown', {
+        key: event.key,
+        code: event.code,
+        location: event.location,
+        ctrlKey: event.ctrlKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+        metaKey: event.metaKey,
+        repeat: event.repeat,
+        bubbles: true,
+        cancelable: true,
+      });
+      if (!frame.dispatchEvent(hostEvent)) event.preventDefault();
+    }
+
+    window.addEventListener('keydown', (event) => {
+      if (settingsDialog.open || attachmentDialog.open || linkDialog.open || memoReader.open || markupDialog.open || event.defaultPrevented || event.isComposing) return;
       const primaryModifier = isMac ? event.metaKey : event.ctrlKey;
-
-      if (primaryModifier && event.key === 'Enter') {
-        event.preventDefault();
+      const menu = document.querySelector('.dropdown-menu.show');
+      if (event.key === 'Escape') {
+        if (menu === composerMenu) setComposerMenu(false, true);
+        else if (menu === visibilityMenu) setVisibilityMenu(false, true);
+        else if (menu) {
+          closeNoteMenu(menu);
+          menu.previousElementSibling.focus();
+        } else if (!editorPreview.hidden) {
+          setPreview(false);
+          noteEditorEl.focus();
+        } else if (composer.classList.contains('focus-mode')) {
+          composer.classList.remove('focus-mode');
+          noteEditorEl.focus();
+        } else if (event.target === notesSearchEl || composer.contains(event.target)) {
+          if (savingNote) return;
+          const editingKey = draftKey;
+          if (editingKey !== 'new' && composer.contains(event.target)) {
+            deselectNote();
+            loadUI();
+          }
+          (document.getElementById('card-' + editingKey) || notesListEl.querySelector('.timeline-card') || document.getElementById('btn-timeline')).focus();
+        } else return;
+      } else if (menu?.contains(event.target) && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+        const items = Array.from(menu.querySelectorAll('button'));
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        items[(items.indexOf(event.target) + step + items.length) % items.length]?.focus();
+      } else if (primaryModifier && event.key === 'Enter' && composer.contains(event.target)) {
         btnSaveNote.click();
-        return;
-      }
-
-      if (primaryModifier && event.shiftKey && event.key.toLowerCase() === 's') {
-        event.preventDefault();
+      } else if (primaryModifier && event.shiftKey && event.key.toLowerCase() === 's') {
         document.getElementById('btn-sync').click();
+      } else if (primaryModifier && event.key.toLowerCase() === 'n') {
+        if (savingNote) return;
+        plugin?.startNewNote();
+        loadUI();
+        noteEditorEl.focus();
+      } else if (event.key === '/' && !primaryModifier && !event.altKey
+        && !event.target.closest('input, textarea, select, [contenteditable]')) {
+        notesSearchEl.focus();
+      } else if (event.target === notesSearchEl && event.key === 'ArrowDown') {
+        notesListEl.querySelector('.timeline-card')?.focus();
+      } else if (event.target.matches('.timeline-card') && ['ArrowUp', 'ArrowDown', 'Enter'].includes(event.key)) {
+        const cards = Array.from(notesListEl.querySelectorAll('.timeline-card'));
+        if (event.key === 'Enter') window.selectNote(event.target.dataset.noteId);
+        else cards[cards.indexOf(event.target) + (event.key === 'ArrowDown' ? 1 : -1)]?.focus();
+      } else {
+        if (!menu) forwardHostShortcut(event);
         return;
       }
-
-      if (primaryModifier && event.key.toLowerCase() === 'n') {
-        event.preventDefault();
-        if (newButton) {
-          newButton.click();
-        }
-      }
+      event.preventDefault();
     });
 
     setTimeout(loadUI, 50);

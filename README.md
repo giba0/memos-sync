@@ -87,11 +87,15 @@ Open the plugin and configure:
 
 The plugin no longer requires a sync tag. Previously linked notes retain their existing technical tag behavior for compatibility; new links preserve the memo content and tags as written. Memos belonging to other accounts are not imported, even if they are visible to the connected account.
 
+Saving a note in the composer requests an immediate background sync when Memos is configured. If sync is already running, the save queues another pass.
+
 When auto-sync is enabled, the plugin also listens for Memos change events when the server and host support authenticated streaming. It reconciles after reconnecting and retains interval sync as a fallback. Events are only hints; they never establish that a memo was deleted.
 
 ## Attachments
 
-- Use the paperclip button in the composer to attach files locally
+- Use **+ → Attach file** or **+ → Add image**, drop a file on the editor, or paste an image. Image thumbnails appear before saving.
+- Open a saved audio attachment to play supported formats.
+- New pending attachment bytes are stored on the device that added them. Run Memos Sync on that device to upload the files before opening them elsewhere.
 - Attachments are uploaded to Memos on sync when supported by the remote instance
 - Current Memos versions accept resumable chunks; the plugin saves upload progress and resumes interrupted sessions. Older versions use the original upload endpoint.
 - If an older server may have accepted an upload but its response was lost, automatic retry is stopped to avoid duplicates. Check Memos before removing and reattaching the file.
@@ -99,19 +103,43 @@ When auto-sync is enabled, the plugin also listens for Memos change events when 
 - PNG, JPEG, GIF, and WebP attachments are displayed inline when they can be read securely.
 - **Open** fetches a remote attachment using the configured token in the request header, then previews supported raster images or offers a download. If the host or server blocks access, use **Memos** to open the service and locate the memo there.
 
+## Markup
+
+Open **+ → Markup** to sketch with Excalidraw. From a saved image attachment, choose **Open in Markup** to annotate it or reopen its embedded drawing. **Add to memo** saves a PNG preview and an editable `.excalidraw` scene. Use **Edit drawing** on the scene attachment to reopen it, then save the memo to update the attachments. Annotating a regular image leaves that original image in place.
+
+Markup loads from the installed plugin. The editor and its bundled fonts do not require a CDN. The bundled fonts exclude the full Xiaolai set.
+
+## Link a memo
+
+Open **+ → Link memo**, search the content of your synced notes, and select a result. The link appears below the draft and syncs to Memos as a native reference after saving. Select a linked memo on a card to read it in a dialog. Use Back or Escape to return, or Edit memo to open the composer. To remove an outgoing reference, edit the source memo and remove its link.
+
+## Composer and filters
+
+The composer starts with private visibility. Its **+** menu also offers Markdown preview and focus mode. Drafts, including unsaved attachments, survive switching views during the current Super Productivity session.
+
+Open **Filters & display** to save the current search, tag, date, note filter, and archive scope. Saved filters are stored on the current device. Open **Settings → Synchronization** for the status, manual sync, and sync log.
+
 ## Shortcuts
 
-Default plugin shortcuts:
+Open **Settings → Keyboard shortcuts** for the in-app reference.
 
-- **Open Memos Sync**
-- **Create Memos Sync Note**
-- **Run Memos Sync**
+Default Super Productivity bindings:
+
+- **Open Memos Sync** — Ctrl + Alt + M
+- **Create Memos Sync Note** — Ctrl + Alt + Shift + N
+- **Run Memos Sync** — Ctrl + Alt + Shift + S
 
 Inside the plugin view:
 
-- **Ctrl/Cmd + Enter** saves the current note
+- **Ctrl/Cmd + N** focuses the new memo draft
+- **Ctrl/Cmd + Enter** saves from the composer
+- **/** focuses search outside editable fields
+- **Arrow Down** moves from search into results. **Up/Down** browse results and **Enter** opens the selected memo
+- **Esc** closes menus, exits preview or focus mode, or leaves the editor with the draft available for the current app session
 - **Shift + Enter** inserts a new line
 - **Ctrl/Cmd + Shift + S** triggers sync
+
+Outside editable fields and open menus, unused key presses reach the Super Productivity shortcut handler when the host uses a same-origin plugin iframe. For example, **Shift + T** opens Today with the default host binding.
 
 Shortcut registration depends on the Super Productivity host runtime. If your installation exposes plugin shortcuts in keyboard settings, you can customize them there.
 

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-24
+
+### Editor and synchronization
+
+- Add Excalidraw Markup with PNG previews and editable scenes.
+- Link memos with native Memos references and open them in a reading dialog.
+- Add saved filters, a keyboard shortcut reference, and keyboard navigation.
+- Sync in the background after saving, and compress larger plugin states before persistence.
+- Store pending attachment payloads separately from synced metadata.
+
+
 ### Added
 - Link preview cards using Memos metadata and inline previews for supported image attachments.
 - Archive, pin, and visibility synchronization with an archived notes view.

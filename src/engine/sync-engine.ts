@@ -8,6 +8,7 @@ export interface LocalNoteSnapshot {
   state?: 'NORMAL' | 'ARCHIVED';
   pinned?: boolean;
   visibility?: 'PRIVATE' | 'PROTECTED' | 'PUBLIC' | 'SPACE';
+  relatedMemoNames?: string[];
   attachments: Array<{
     id: string;
     filename: string;
@@ -27,6 +28,7 @@ export interface RemoteMemoSnapshot {
   state?: 'NORMAL' | 'ARCHIVED';
   pinned?: boolean;
   visibility?: 'PRIVATE' | 'PROTECTED' | 'PUBLIC' | 'SPACE';
+  relatedMemoNames?: string[];
   attachments: Array<{
     name: string;
     filename: string;
@@ -139,6 +141,7 @@ export function hashLocalSnapshot(note: LocalNoteSnapshot): string {
     state: note.state ?? 'NORMAL',
     pinned: note.pinned ?? false,
     visibility: note.visibility ?? 'PRIVATE',
+    ...(note.relatedMemoNames?.length ? { relations: [...new Set(note.relatedMemoNames)].sort() } : {}),
     attachments: note.attachments.map((item) => ({
       name: item.remoteName || `local:${item.id}`,
       filename: item.filename,
@@ -154,6 +157,7 @@ export function hashRemoteSnapshot(memo: RemoteMemoSnapshot): string {
     state: memo.state ?? 'NORMAL',
     pinned: memo.pinned ?? false,
     visibility: memo.visibility ?? 'PRIVATE',
+    ...(memo.relatedMemoNames?.length ? { relations: [...new Set(memo.relatedMemoNames)].sort() } : {}),
     attachments: memo.attachments.map((item) => ({
       name: item.name,
       filename: item.filename,
