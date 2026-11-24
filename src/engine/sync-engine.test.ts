@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { computeSyncActions, hashContent } from './sync-engine';
+import { computeSyncActions, hashContent, hashLocalSnapshot, hashRemoteSnapshot } from './sync-engine';
 
 describe('hashContent', () => {
   it('produces consistent output for same input', () => {
@@ -33,12 +33,39 @@ describe('computeSyncActions', () => {
     ...overrides,
   });
 
+  it('uses the same canonical hash for local and remote attachments and metadata', () => {
+    const local = localNote({
+      state: 'ARCHIVED', pinned: true, visibility: 'PROTECTED',
+      attachments: [{ id: 'a', remoteName: 'attachments/a', filename: 'a.txt', mimeType: 'text/plain', size: 7 }],
+    });
+    const remote = remoteMemo({
+      state: 'ARCHIVED', pinned: true, visibility: 'PROTECTED',
+      attachments: [{ name: 'attachments/a', filename: 'a.txt', type: 'text/plain', size: '7' }],
+    });
+    assert.strictEqual(hashLocalSnapshot(local), hashRemoteSnapshot(remote));
+  });
+
+  it('detects local and remote metadata changes and preserves conflicts', () => {
+    const base = localNote();
+    const mapping = {
+      localNoteId: 'note-1', memoId: 'memo-1', syncTag, state: 'linked' as const,
+      lastSyncedAt: base.updatedAt, lastSyncedContentHash: '',
+      lastKnownLocalUpdatedAt: base.updatedAt, lastKnownMemoUpdatedAt: base.updatedAt,
+      lastSyncedSnapshotHash: hashLocalSnapshot(base),
+    };
+    const actionsFor = (local: ReturnType<typeof localNote>, remote: ReturnType<typeof remoteMemo>) =>
+      computeSyncActions({ localNotes: [local], remoteMemos: [remote], mappingStore: { version: 1, mappings: [mapping], lastFullSyncAt: null } });
+    assert.strictEqual(actionsFor(localNote({ state: 'ARCHIVED' }), remoteMemo())[0].type, 'update-memo');
+    assert.strictEqual(actionsFor(base, remoteMemo({ pinned: true }))[0].type, 'update-local-note');
+    assert.strictEqual(actionsFor(localNote({ state: 'ARCHIVED' }), remoteMemo({ pinned: true }))[0].type, 'mark-conflict');
+    assert.strictEqual(actionsFor(localNote({ visibility: 'PUBLIC' }), remoteMemo())[0].type, 'update-memo');
+  });
+
   it('creates memo for new local note with no mapping', () => {
     const actions = computeSyncActions({
       localNotes: [localNote({ content: '# Local\nBody' })],
       remoteMemos: [],
       mappingStore: { version: 1, mappings: [], lastFullSyncAt: null },
-      syncTag,
     });
 
     assert.strictEqual(actions[0]?.type, 'create-memo');
@@ -47,9 +74,8 @@ describe('computeSyncActions', () => {
   it('imports remote memo as local note when no mapping exists', () => {
     const actions = computeSyncActions({
       localNotes: [],
-      remoteMemos: [remoteMemo({ content: '# Remote\nBody' })],
+      remoteMemos: [remoteMemo({ content: '# Remote\nBody', tags: [] })],
       mappingStore: { version: 1, mappings: [], lastFullSyncAt: null },
-      syncTag,
     });
 
     assert.strictEqual(actions[0]?.type, 'create-local-note');
@@ -74,7 +100,6 @@ describe('computeSyncActions', () => {
         }],
         lastFullSyncAt: null,
       },
-      syncTag,
     });
 
     assert.strictEqual(actions[0]?.type, 'update-memo');
@@ -99,7 +124,6 @@ describe('computeSyncActions', () => {
         }],
         lastFullSyncAt: null,
       },
-      syncTag,
     });
 
     assert.strictEqual(actions[0]?.type, 'update-local-note');
@@ -124,7 +148,6 @@ describe('computeSyncActions', () => {
         }],
         lastFullSyncAt: null,
       },
-      syncTag,
     });
 
     assert.strictEqual(actions[0]?.type, 'mark-conflict');
@@ -149,13 +172,12 @@ describe('computeSyncActions', () => {
         }],
         lastFullSyncAt: null,
       },
-      syncTag,
     });
 
     assert.strictEqual(actions[0]?.type, 'no-op');
   });
 
-  it('marks unlinked when remote memo disappears', () => {
+  it('preserves the local note when a remote memo disappears', () => {
     const actions = computeSyncActions({
       localNotes: [localNote()],
       remoteMemos: [],
@@ -173,10 +195,9 @@ describe('computeSyncActions', () => {
         }],
         lastFullSyncAt: null,
       },
-      syncTag,
     });
 
-    assert.strictEqual(actions[0]?.type, 'mark-unlinked');
+    assert.strictEqual(actions[0]?.type, 'remote-missing');
   });
 
   it('marks unlinked when local note disappears', () => {
@@ -197,7 +218,6 @@ describe('computeSyncActions', () => {
         }],
         lastFullSyncAt: null,
       },
-      syncTag,
     });
 
     assert.strictEqual(actions[0]?.type, 'mark-unlinked');

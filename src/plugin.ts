@@ -1,8 +1,11 @@
 import { MemosClient } from './adapters/memos-client';
-import { computeSyncActions, hashContent } from './engine/sync-engine';
+import { fetchRemoteMemosForSync } from './adapters/remote-memos';
+import { uploadAttachment } from './adapters/upload';
+import { consumeEvents, eventsUnavailable } from './adapters/event-stream';
+import { computeSyncActions, hashContent, hashLocalSnapshot, hashRemoteSnapshot } from './engine/sync-engine';
 import type { LocalNoteSnapshot, RemoteMemoSnapshot, SyncAction } from './engine/sync-engine';
 import type { LocalAttachment, LocalNote, MappingStore, PluginConfig, SyncLogEntry, SyncMapping, SyncResult } from './types';
-import type { MemoAttachment } from './types/memos';
+import type { Memo, MemoAttachment } from './types/memos';
 
 declare const PluginAPI: {
   onReady(cb: () => void): void;
@@ -57,6 +60,53 @@ let state: PluginState = {
 
 let autoSyncTimer: ReturnType<typeof setInterval> | null = null;
 let isSyncRunning = false;
+let stateRevision = 0;
+let eventsController: AbortController | null = null;
+let eventSyncTimer: ReturnType<typeof setTimeout> | null = null;
+let eventPending = false;
+
+function scheduleEventSync(): void {
+  eventPending = true;
+  if (eventSyncTimer) clearTimeout(eventSyncTimer);
+  eventSyncTimer = setTimeout(() => {
+    eventSyncTimer = null;
+    if (isSyncRunning) return;
+    eventPending = false;
+    void runSync('auto');
+  }, 1500);
+}
+
+function startEventStream(client: MemosClient, controller: AbortController): void {
+  void (async () => {
+    let connectedBefore = false;
+    while (!controller.signal.aborted) {
+      try {
+        await consumeEvents(client, controller.signal, () => {
+          if (connectedBefore) scheduleEventSync();
+          connectedBefore = true;
+        }, scheduleEventSync);
+        if (!controller.signal.aborted) throw new Error('Memos event stream disconnected.');
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (eventsUnavailable(error)) {
+          showSnack('Memos live updates unavailable; interval sync remains active.', 'WARNING');
+          return;
+        }
+        console.warn('Memos event stream disconnected; interval sync remains active.', error);
+      }
+      await new Promise<void>((resolve) => {
+        const done = (): void => {
+          clearTimeout(timer);
+          controller.signal.removeEventListener('abort', done);
+          resolve();
+        };
+        const timer = setTimeout(done, 10000);
+        controller.signal.addEventListener('abort', done, { once: true });
+        if (controller.signal.aborted) done();
+      });
+    }
+  })();
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -107,7 +157,11 @@ async function loadState(): Promise<void> {
   try {
     const parsed = JSON.parse(raw) as Partial<PluginState>;
     state = {
-      config: parsed.config ?? { ...DEFAULT_CONFIG },
+      config: parsed.config ? {
+        ...DEFAULT_CONFIG,
+        ...parsed.config,
+        syncTag: normalizeSyncTag(parsed.config.syncTag),
+      } : { ...DEFAULT_CONFIG },
       notes: parsed.notes ?? [],
       selectedNoteId: parsed.selectedNoteId ?? null,
       composeRequestId: parsed.composeRequestId ?? null,
@@ -129,6 +183,7 @@ async function loadState(): Promise<void> {
 }
 
 function saveState(): void {
+  stateRevision++;
   PluginAPI.persistDataSynced(JSON.stringify(state));
 }
 
@@ -140,11 +195,20 @@ function normalizePollIntervalMs(value: number): number {
   return Math.max(60_000, Math.round(value));
 }
 
+function normalizeSyncTag(value: string | undefined): string {
+  return value?.trim().replace(/^#+/, '').trim() || DEFAULT_CONFIG.syncTag;
+}
+
 function stopAutoSync(): void {
   if (autoSyncTimer) {
     clearInterval(autoSyncTimer);
     autoSyncTimer = null;
   }
+  eventsController?.abort();
+  eventsController = null;
+  if (eventSyncTimer) clearTimeout(eventSyncTimer);
+  eventSyncTimer = null;
+  eventPending = false;
 }
 
 function restartAutoSync(): void {
@@ -163,11 +227,17 @@ function restartAutoSync(): void {
   autoSyncTimer = setInterval(() => {
     void runSync('auto');
   }, intervalMs);
+  const client = createClient();
+  if (client && typeof AbortController !== 'undefined' && typeof ReadableStream !== 'undefined') {
+    eventsController = new AbortController();
+    startEventStream(client, eventsController);
+  }
 }
 
 function setConfig(config: PluginConfig): void {
   state.config = {
     ...config,
+    syncTag: normalizeSyncTag(config.syncTag),
     pollIntervalMs: normalizePollIntervalMs(config.pollIntervalMs),
   };
   saveState();
@@ -192,21 +262,19 @@ function deriveNoteTitle(content: string): string {
   return firstNonEmptyLine ? firstNonEmptyLine.slice(0, 60) : 'Untitled note';
 }
 
-function syncTagToken(): string {
-  return state.config.syncTag.startsWith('#') ? state.config.syncTag : `#${state.config.syncTag}`;
-}
-
-function noteContentToMemoContent(content: string): string {
+function noteContentToMemoContent(content: string, legacyTag: string): string {
+  if (!legacyTag) return content;
   const trimmed = content.trimEnd();
-  const tag = syncTagToken();
+  const tag = `#${legacyTag.replace(/^#+/, '')}`;
   if (trimmed.includes(tag)) {
     return trimmed;
   }
   return trimmed.length > 0 ? `${trimmed}\n\n${tag}` : tag;
 }
 
-function memoContentToNoteContent(content: string): string {
-  const tag = syncTagToken().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function memoContentToNoteContent(content: string, legacyTag: string): string {
+  if (!legacyTag) return content;
+  const tag = `#${legacyTag.replace(/^#+/, '')}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return content
     .replace(new RegExp(`(^|\\s)${tag}(?=\\s|$)`, 'g'), ' ')
     .replace(/\n{3,}/g, '\n\n')
@@ -236,11 +304,8 @@ function attachmentSignature(attachments: Array<Pick<LocalAttachment, 'name' | '
   );
 }
 
-async function syncNoteAttachments(note: LocalNote, memoId: string, client: MemosClient): Promise<LocalAttachment[]> {
-  if (note.attachments.length === 0) {
-    return [];
-  }
-
+async function syncNoteAttachments(note: LocalNote, remoteMemo: Memo, client: MemosClient): Promise<LocalAttachment[]> {
+  const memoId = MemosClient.extractId(remoteMemo.name);
   const syncedAttachments: LocalAttachment[] = [];
   const attachmentRefs: Array<{ name: string }> = [];
 
@@ -251,15 +316,18 @@ async function syncNoteAttachments(note: LocalNote, memoId: string, client: Memo
       continue;
     }
 
-    if (!attachment.base64Content) {
-      syncedAttachments.push({ ...attachment });
-      continue;
+    if (!attachment.base64Content && attachment.size !== 0) {
+      throw new Error(`Attachment "${attachment.filename}" has no content and cannot be uploaded.`);
     }
 
-    const createdAttachment = await client.createAttachment({
-      filename: attachment.filename,
-      type: attachment.mimeType,
-      content: attachment.base64Content,
+    const createdAttachment = await uploadAttachment(client, attachment, (upload) => {
+      const current = getLocalNote(note.id);
+      if (!current) throw new Error('The note was removed while uploading an attachment.');
+      upsertLocalNote({
+        ...current,
+        attachments: current.attachments.map((entry) => entry.id === attachment.id ? { ...entry, upload } : entry),
+      });
+      saveState();
     });
 
     const syncedAttachment: LocalAttachment = {
@@ -270,16 +338,72 @@ async function syncNoteAttachments(note: LocalNote, memoId: string, client: Memo
       createdAt: createdAttachment.createTime,
       size: Number(createdAttachment.size || attachment.size),
       base64Content: undefined,
+      upload: undefined,
     };
 
     syncedAttachments.push(syncedAttachment);
     attachmentRefs.push({ name: createdAttachment.name });
+    const currentNote = getLocalNote(note.id);
+    if (currentNote) {
+      upsertLocalNote({
+        ...currentNote,
+        attachments: currentNote.attachments.map((entry) => entry.id === attachment.id ? syncedAttachment : entry),
+      });
+      saveState();
+    }
   }
 
-  if (attachmentRefs.length > 0) {
+  const existingNames = remoteMemo.attachments.map((attachment) => attachment.name).sort();
+  const desiredNames = attachmentRefs.map((attachment) => attachment.name).sort();
+  if (JSON.stringify(existingNames) !== JSON.stringify(desiredNames)) {
     await client.setMemoAttachments(memoId, attachmentRefs);
   }
   return syncedAttachments;
+}
+
+function localSnapshot(note: LocalNote): LocalNoteSnapshot {
+  return {
+    id: note.id,
+    content: note.content,
+    createdAt: note.createdAt,
+    updatedAt: note.updatedAt,
+    state: note.state,
+    pinned: note.pinned,
+    visibility: note.visibility,
+    attachments: note.attachments.map((attachment) => ({
+      id: attachment.id,
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+      remoteUrl: attachment.remoteUrl,
+      remoteName: attachment.name,
+    })),
+  };
+}
+
+function remoteSnapshot(memo: Memo): RemoteMemoSnapshot {
+  const mapping = state.mappingStore.mappings.find((item) => item.memoId === MemosClient.extractId(memo.name));
+  return {
+    memoId: MemosClient.extractId(memo.name),
+    content: memoContentToNoteContent(memo.content, mapping?.syncTag ?? ''),
+    tags: memo.tags,
+    createdAt: memo.createTime,
+    updatedAt: memo.updateTime,
+    state: memo.state,
+    pinned: memo.pinned,
+    visibility: memo.visibility,
+    attachments: memo.attachments,
+  };
+}
+
+function mergeSyncedAttachments(note: LocalNote, attachments: LocalAttachment[]): void {
+  const current = getLocalNote(note.id);
+  if (!current) return;
+  const replacements = new Map(note.attachments.map((attachment, index) => [attachment.id, attachments[index]]));
+  upsertLocalNote({
+    ...current,
+    attachments: current.attachments.map((attachment) => replacements.get(attachment.id) ?? attachment),
+  });
 }
 
 function upsertLocalNote(note: LocalNote): void {
@@ -371,6 +495,7 @@ function createLocalNoteFromRemote(
   memoCreatedAt: string,
   memoUpdatedAt: string,
   attachments: LocalAttachment[],
+  memo: Memo,
 ): LocalNote {
   const note: LocalNote = {
     id: createId('note'),
@@ -378,6 +503,9 @@ function createLocalNoteFromRemote(
     createdAt: memoCreatedAt,
     updatedAt: memoUpdatedAt,
     attachments,
+    state: memo.state,
+    pinned: memo.pinned,
+    visibility: memo.visibility,
   };
 
   upsertLocalNote(note);
@@ -425,78 +553,127 @@ function removeAttachmentFromNote(noteId: string, attachmentId: string): LocalNo
   return updatedNote;
 }
 
-async function executeAction(action: SyncAction, client: MemosClient): Promise<SyncResult> {
+function assertMemoOwner(memo: Memo, currentUser: string): void {
+  if (memo.creator !== currentUser) {
+    throw new Error('The memo belongs to another Memos account; the operation was stopped.');
+  }
+}
+
+async function executeAction(action: SyncAction, client: MemosClient, currentUser: string): Promise<SyncResult> {
   const timestamp = nowIso();
 
   try {
     switch (action.type) {
       case 'create-memo': {
-        const createdMemo = await client.createMemo({
-          content: noteContentToMemoContent(action.content),
+        const noteBeforeCreate = getLocalNote(action.localNoteId);
+        if (noteBeforeCreate?.visibility === 'SPACE') {
+          throw new Error('Cannot create a SPACE memo without its space. Change visibility before syncing.');
+        }
+        let createdMemo = await client.createMemo({
+          content: action.content,
           createTime: action.createdAt,
+          ...(noteBeforeCreate?.visibility ? { visibility: noteBeforeCreate.visibility } : {}),
         });
         const memoId = MemosClient.extractId(createdMemo.name);
         const localNote = getLocalNote(action.localNoteId);
-        const syncedAttachments = localNote
-          ? await syncNoteAttachments(localNote, memoId, client)
-          : [];
-        if (localNote) {
-          upsertLocalNote({ ...localNote, attachments: syncedAttachments });
-        }
         upsertMapping({
           localNoteId: action.localNoteId,
           memoId,
-          syncTag: state.config.syncTag,
+          syncTag: '',
           state: 'linked',
           lastSyncedAt: timestamp,
           lastSyncedContentHash: action.contentHash,
           lastKnownLocalUpdatedAt: action.localUpdatedAt,
           lastKnownMemoUpdatedAt: createdMemo.updateTime,
+          lastSyncedSnapshotHash: hashRemoteSnapshot(remoteSnapshot(createdMemo)),
         });
+        saveState();
+        if (localNote) {
+          if (localNote.state === 'ARCHIVED' || localNote.pinned) {
+            createdMemo = await client.updateMemo(memoId, {
+              ...(localNote.state === 'ARCHIVED' ? { state: 'ARCHIVED' as const } : {}),
+              ...(localNote.pinned ? { pinned: true } : {}),
+            });
+            const mapping = getMapping(action.localNoteId, memoId);
+            if (mapping) {
+              upsertMapping({ ...mapping, lastSyncedSnapshotHash: hashRemoteSnapshot(remoteSnapshot(createdMemo)) });
+              saveState();
+            }
+          }
+          const syncedAttachments = await syncNoteAttachments(localNote, createdMemo, client);
+          const updatedNote = { ...localNote, attachments: syncedAttachments };
+          mergeSyncedAttachments(localNote, syncedAttachments);
+          const mapping = getMapping(action.localNoteId, memoId);
+          if (mapping) {
+            upsertMapping({ ...mapping, lastSyncedSnapshotHash: hashLocalSnapshot(localSnapshot(updatedNote)) });
+          }
+        }
         return createSyncResult('created-remote', 'Created remote memo.', action.localNoteId, memoId);
       }
 
       case 'create-local-note': {
         const remoteMemo = await client.getMemo(action.memoId);
+        assertMemoOwner(remoteMemo, currentUser);
         const localNote = createLocalNoteFromRemote(
-          action.content,
-          action.memoCreatedAt,
-          action.memoUpdatedAt,
+          remoteMemo.content,
+          remoteMemo.createTime,
+          remoteMemo.updateTime,
           remoteMemo.attachments.map((attachment) => mapRemoteAttachmentToLocal(attachment, client)),
+          remoteMemo,
         );
         upsertMapping({
           localNoteId: localNote.id,
           memoId: action.memoId,
-          syncTag: state.config.syncTag,
+          syncTag: '',
           state: 'linked',
           lastSyncedAt: timestamp,
           lastSyncedContentHash: action.contentHash,
           lastKnownLocalUpdatedAt: localNote.updatedAt,
-          lastKnownMemoUpdatedAt: action.memoUpdatedAt,
+          lastKnownMemoUpdatedAt: remoteMemo.updateTime,
+          lastSyncedSnapshotHash: hashLocalSnapshot(localSnapshot(localNote)),
         });
         return createSyncResult('created-local', 'Imported remote memo as local note.', localNote.id, action.memoId);
       }
 
       case 'update-memo': {
-        const updatedMemo = await client.updateMemo(action.memoId, {
-          content: noteContentToMemoContent(action.content),
-        });
         const localNote = getLocalNote(action.localNoteId);
-        const syncedAttachments = localNote
-          ? await syncNoteAttachments(localNote, action.memoId, client)
-          : [];
-        if (localNote) {
-          upsertLocalNote({ ...localNote, attachments: syncedAttachments });
+        if (!localNote) {
+          return createSyncResult('error', 'Local note not found.', action.localNoteId, action.memoId);
         }
+        if (hashLocalSnapshot(localSnapshot(localNote)) !== action.expectedLocalHash) {
+          throw new Error('Local note changed during sync. Run sync again to reconcile.');
+        }
+        const beforeUpdate = await client.getMemo(action.memoId);
+        assertMemoOwner(beforeUpdate, currentUser);
+        if (hashRemoteSnapshot(remoteSnapshot(beforeUpdate)) !== action.expectedRemoteHash) {
+          throw new Error('Remote memo changed during sync. Run sync again to reconcile.');
+        }
+        if (localNote.visibility === 'SPACE' && beforeUpdate.visibility !== 'SPACE') {
+          throw new Error('Cannot restore SPACE visibility without its space.');
+        }
+        const latestNote = getLocalNote(action.localNoteId);
+        if (!latestNote || hashLocalSnapshot(localSnapshot(latestNote)) !== action.expectedLocalHash) {
+          throw new Error('Local note changed during sync. Run sync again to reconcile.');
+        }
+        const updatedMemo = await client.updateMemo(action.memoId, {
+          content: noteContentToMemoContent(action.content, getMapping(action.localNoteId, action.memoId)?.syncTag ?? ''),
+          ...(localNote.state && localNote.state !== beforeUpdate.state ? { state: localNote.state } : {}),
+          ...(localNote.pinned !== undefined && localNote.pinned !== beforeUpdate.pinned ? { pinned: localNote.pinned } : {}),
+          ...(localNote.visibility && localNote.visibility !== beforeUpdate.visibility ? { visibility: localNote.visibility } : {}),
+        });
+        const syncedAttachments = await syncNoteAttachments(localNote, updatedMemo, client);
+        const updatedNote = { ...localNote, attachments: syncedAttachments };
+        mergeSyncedAttachments(localNote, syncedAttachments);
         upsertMapping({
           localNoteId: action.localNoteId,
           memoId: action.memoId,
-          syncTag: state.config.syncTag,
+          syncTag: getMapping(action.localNoteId, action.memoId)?.syncTag ?? '',
           state: 'linked',
           lastSyncedAt: timestamp,
           lastSyncedContentHash: action.contentHash,
           lastKnownLocalUpdatedAt: action.localUpdatedAt,
           lastKnownMemoUpdatedAt: updatedMemo.updateTime,
+          lastSyncedSnapshotHash: hashLocalSnapshot(localSnapshot(updatedNote)),
         });
         return createSyncResult('updated-remote', 'Updated remote memo.', action.localNoteId, action.memoId);
       }
@@ -506,8 +683,19 @@ async function executeAction(action: SyncAction, client: MemosClient): Promise<S
         if (!localNote) {
           return createSyncResult('error', 'Local note not found.', action.localNoteId, action.memoId);
         }
+        if (hashLocalSnapshot(localSnapshot(localNote)) !== action.expectedLocalHash) {
+          throw new Error('Local note changed during sync. Run sync again to reconcile.');
+        }
 
         const remoteMemo = await client.getMemo(action.memoId);
+        assertMemoOwner(remoteMemo, currentUser);
+        if (hashRemoteSnapshot(remoteSnapshot(remoteMemo)) !== action.expectedRemoteHash) {
+          throw new Error('Remote memo changed during sync. Run sync again to reconcile.');
+        }
+        const latestNote = getLocalNote(action.localNoteId);
+        if (!latestNote || hashLocalSnapshot(localSnapshot(latestNote)) !== action.expectedLocalHash) {
+          throw new Error('Local note changed during sync. Run sync again to reconcile.');
+        }
 
         const updatedNote: LocalNote = {
           ...localNote,
@@ -515,17 +703,21 @@ async function executeAction(action: SyncAction, client: MemosClient): Promise<S
           createdAt: remoteMemo.createTime,
           updatedAt: action.memoUpdatedAt,
           attachments: remoteMemo.attachments.map((attachment) => mapRemoteAttachmentToLocal(attachment, client)),
+          state: remoteMemo.state,
+          pinned: remoteMemo.pinned,
+          visibility: remoteMemo.visibility,
         };
         upsertLocalNote(updatedNote);
         upsertMapping({
           localNoteId: action.localNoteId,
           memoId: action.memoId,
-          syncTag: state.config.syncTag,
+          syncTag: getMapping(action.localNoteId, action.memoId)?.syncTag ?? '',
           state: 'linked',
           lastSyncedAt: timestamp,
           lastSyncedContentHash: action.contentHash,
           lastKnownLocalUpdatedAt: action.memoUpdatedAt,
           lastKnownMemoUpdatedAt: action.memoUpdatedAt,
+          lastSyncedSnapshotHash: hashLocalSnapshot(localSnapshot(updatedNote)),
         });
         return createSyncResult('updated-local', 'Updated local note from remote memo.', action.localNoteId, action.memoId);
       }
@@ -533,14 +725,15 @@ async function executeAction(action: SyncAction, client: MemosClient): Promise<S
       case 'mark-conflict': {
         const existingMapping = getMapping(action.localNoteId, action.memoId);
         upsertMapping({
+          ...existingMapping,
           localNoteId: action.localNoteId,
           memoId: action.memoId,
-          syncTag: state.config.syncTag,
+          syncTag: existingMapping?.syncTag ?? '',
           state: 'conflict',
           lastSyncedAt: existingMapping?.lastSyncedAt ?? timestamp,
           lastSyncedContentHash: existingMapping?.lastSyncedContentHash ?? '',
-          lastKnownLocalUpdatedAt: timestamp,
-          lastKnownMemoUpdatedAt: timestamp,
+          lastKnownLocalUpdatedAt: existingMapping?.lastKnownLocalUpdatedAt ?? timestamp,
+          lastKnownMemoUpdatedAt: existingMapping?.lastKnownMemoUpdatedAt ?? timestamp,
         });
         return createSyncResult('conflict', 'Conflict detected. Resolve manually.', action.localNoteId, action.memoId);
       }
@@ -550,6 +743,7 @@ async function executeAction(action: SyncAction, client: MemosClient): Promise<S
           removeLocalNote(action.localNoteId);
         }
         if (action.reason === 'local-deleted') {
+          assertMemoOwner(await client.getMemo(action.memoId), currentUser);
           await client.softDelete(action.memoId);
         }
         removeMapping(action.localNoteId, action.memoId);
@@ -563,7 +757,19 @@ async function executeAction(action: SyncAction, client: MemosClient): Promise<S
         );
       }
 
+      case 'remote-missing': {
+        const mapping = getMapping(action.localNoteId, action.memoId);
+        if (mapping) upsertMapping({ ...mapping, state: 'remote-missing' });
+        return createSyncResult('error', 'Remote memo was not found or is inaccessible. Confirm deletion before removing the local note.', action.localNoteId, action.memoId);
+      }
+
       case 'no-op':
+        {
+          const mapping = getMapping(action.localNoteId, action.memoId);
+          if (mapping && action.snapshotHash) {
+            upsertMapping({ ...mapping, state: 'linked', lastSyncedSnapshotHash: action.snapshotHash });
+          }
+        }
         return createSyncResult('no-op', 'Already in sync.', action.localNoteId, action.memoId);
     }
   } catch (error) {
@@ -592,52 +798,40 @@ async function runSync(triggeredBy: 'manual' | 'auto' | 'hook'): Promise<void> {
   }
 
   try {
-    const remoteMemosResponse = await client.listMemos({
-      pageSize: 1000,
-    });
+    const currentUser = await client.getCurrentUserName();
+    const linkedMemoIds = new Set(state.mappingStore.mappings.map((mapping) => mapping.memoId));
+    const remoteMemos = await fetchRemoteMemosForSync(
+      client,
+      state.mappingStore.mappings.map((mapping) => mapping.memoId),
+    );
 
-    const localNoteSnapshots: LocalNoteSnapshot[] = state.notes.map((note) => ({
-      id: note.id,
-      content: note.content,
-      createdAt: note.createdAt,
-      updatedAt: note.updatedAt,
-      attachments: note.attachments.map((attachment) => ({
-        id: attachment.id,
-        filename: attachment.filename,
-        mimeType: attachment.mimeType,
-        size: attachment.size,
-        remoteUrl: attachment.remoteUrl,
-        remoteName: attachment.name,
-      })),
-    }));
+    const localNoteSnapshots = state.notes.map(localSnapshot);
 
-    const remoteMemoSnapshots: RemoteMemoSnapshot[] = remoteMemosResponse.memos
-      .filter((memo) => memo.tags.includes(state.config.syncTag))
-      .map((memo) => ({
-        memoId: MemosClient.extractId(memo.name),
-        content: memoContentToNoteContent(memo.content),
-        tags: memo.tags,
-        createdAt: memo.createTime,
-        updatedAt: memo.updateTime,
-        attachments: memo.attachments,
-      }));
+    if (remoteMemos.some((memo) => typeof memo.creator !== 'string' || !/^users\/[^/]+$/.test(memo.creator))) {
+      throw new Error('A Memos response did not identify its owner. Synchronization stopped to protect other users’ memos.');
+    }
+    if (remoteMemos.some((memo) => linkedMemoIds.has(MemosClient.extractId(memo.name)) && memo.creator !== currentUser)) {
+      throw new Error('A linked memo belongs to another Memos account. Synchronization stopped to prevent changing another user’s notes.');
+    }
+    const remoteMemoSnapshots: RemoteMemoSnapshot[] = remoteMemos
+      .filter((memo) => memo.creator === currentUser)
+      .map(remoteSnapshot);
 
     const actions = computeSyncActions({
       localNotes: localNoteSnapshots,
       remoteMemos: remoteMemoSnapshots,
       mappingStore: state.mappingStore,
-      syncTag: state.config.syncTag,
     });
 
     const results: SyncResult[] = [
       createSyncResult(
         'no-op',
-        `Diagnostics: local notes=${state.notes.length}, remote memos=${remoteMemosResponse.memos.length}, computed actions=${actions.length}`,
+        `Diagnostics: local notes=${state.notes.length}, remote memos=${remoteMemos.length}, computed actions=${actions.length}`,
       ),
     ];
 
     for (const action of actions) {
-      results.push(await executeAction(action, client));
+      results.push(await executeAction(action, client, currentUser));
     }
 
     state.mappingStore.lastFullSyncAt = nowIso();
@@ -667,6 +861,7 @@ async function runSync(triggeredBy: 'manual' | 'auto' | 'hook'): Promise<void> {
     showSnack(`Memos Sync error: ${detail}`, 'ERROR');
   } finally {
     isSyncRunning = false;
+    if (eventPending && state.config.autoSyncEnabled && !eventSyncTimer) scheduleEventSync();
   }
 }
 
@@ -707,6 +902,7 @@ PluginAPI.onReady(() => {
 (globalThis as Record<string, unknown>).__memosSyncPlugin = {
   getState: () => ({
     ...state,
+    stateRevision,
     noteSummaries: state.notes.map((note) => ({
       id: note.id,
       title: deriveNoteTitle(note.content),
@@ -730,6 +926,21 @@ PluginAPI.onReady(() => {
     saveState();
   },
   updateNote: (noteId: string, content: string) => updateLocalNote(noteId, content),
+  updateNoteMetadata: (noteId: string, metadata: { state?: 'NORMAL' | 'ARCHIVED'; pinned?: boolean; visibility?: 'PRIVATE' | 'PROTECTED' | 'PUBLIC' }) => {
+    const note = getLocalNote(noteId);
+    if (!note) throw new Error('Local note not found.');
+    upsertLocalNote({ ...note, ...metadata, updatedAt: nowIso() });
+    saveState();
+  },
+  confirmRemoteDeletion: (localNoteId: string, memoId: string) => {
+    const mapping = getMapping(localNoteId, memoId);
+    if (!mapping || mapping.state !== 'remote-missing') {
+      throw new Error('The remote memo is not awaiting deletion confirmation.');
+    }
+    removeLocalNote(localNoteId);
+    removeMapping(localNoteId, memoId);
+    saveState();
+  },
   deleteNote: (noteId: string) => {
     removeLocalNote(noteId);
     saveState();
@@ -738,6 +949,22 @@ PluginAPI.onReady(() => {
     addAttachmentToNote(noteId, attachment),
   removeAttachment: (noteId: string, attachmentId: string) =>
     removeAttachmentFromNote(noteId, attachmentId),
+  readAttachment: async (noteId: string, attachmentId: string): Promise<Blob> => {
+    const attachment = getLocalNote(noteId)?.attachments.find((entry) => entry.id === attachmentId);
+    if (!attachment) throw new Error('Attachment not found.');
+    if (attachment.base64Content) {
+      const binary = atob(attachment.base64Content);
+      return new Blob([Uint8Array.from(binary, (character) => character.charCodeAt(0))], { type: attachment.mimeType });
+    }
+    const client = createClient();
+    if (!client || !attachment.name) throw new Error('Connect to Memos to open this attachment.');
+    return client.downloadAttachment(attachment.name, attachment.filename);
+  },
+  getLinkMetadata: async (url: string) => {
+    const client = createClient();
+    if (!client) throw new Error('Connect to Memos to load link previews.');
+    return client.getLinkMetadata(url);
+  },
   runSync: (config?: PluginConfig) => {
     if (config) {
       setConfig(config);
@@ -745,10 +972,6 @@ PluginAPI.onReady(() => {
     return runSync('manual');
   },
   testConnection: async (config?: PluginConfig) => {
-    if (config) {
-      setConfig(config);
-    }
-
     const client = createClient(config);
     if (!client) {
       return {
@@ -772,50 +995,67 @@ PluginAPI.onReady(() => {
     }
 
     const timestamp = nowIso();
+    const currentUser = await client.getCurrentUserName();
     if (winner === 'local') {
       const localNote = getLocalNote(localNoteId);
       if (!localNote) {
         return;
       }
 
+      const currentMemo = await client.getMemo(memoId);
+      assertMemoOwner(currentMemo, currentUser);
+      if (localNote.visibility === 'SPACE' && currentMemo.visibility !== 'SPACE') {
+        throw new Error('Cannot restore SPACE visibility without its space.');
+      }
       const updatedMemo = await client.updateMemo(memoId, {
-        content: noteContentToMemoContent(localNote.content),
+        content: noteContentToMemoContent(localNote.content, mapping.syncTag),
+        state: localNote.state ?? 'NORMAL',
+        pinned: localNote.pinned ?? false,
+        ...(localNote.visibility && localNote.visibility !== 'SPACE' ? { visibility: localNote.visibility } : {}),
       });
-      const syncedAttachments = await syncNoteAttachments(localNote, memoId, client);
-      upsertLocalNote({ ...localNote, attachments: syncedAttachments });
+      const syncedAttachments = await syncNoteAttachments(localNote, updatedMemo, client);
+      const updatedNote = { ...localNote, attachments: syncedAttachments };
+      upsertLocalNote(updatedNote);
       upsertMapping({
         localNoteId,
         memoId,
-        syncTag: state.config.syncTag,
+        syncTag: mapping.syncTag,
         state: 'linked',
         lastSyncedAt: timestamp,
         lastSyncedContentHash: hashContent(localNote.content),
         lastKnownLocalUpdatedAt: localNote.updatedAt,
         lastKnownMemoUpdatedAt: updatedMemo.updateTime,
+        lastSyncedSnapshotHash: hashLocalSnapshot(localSnapshot(updatedNote)),
       });
     } else {
       const memo = await client.getMemo(memoId);
+      assertMemoOwner(memo, currentUser);
       const localNote = getLocalNote(localNoteId);
       if (!localNote) {
         return;
       }
 
-      upsertLocalNote({
+      const updatedNote: LocalNote = {
         ...localNote,
-        content: memoContentToNoteContent(memo.content),
+        content: memoContentToNoteContent(memo.content, mapping.syncTag),
         createdAt: memo.createTime,
         updatedAt: memo.updateTime,
         attachments: memo.attachments.map((attachment) => mapRemoteAttachmentToLocal(attachment, client)),
-      });
+        state: memo.state,
+        pinned: memo.pinned,
+        visibility: memo.visibility,
+      };
+      upsertLocalNote(updatedNote);
       upsertMapping({
         localNoteId,
         memoId,
-        syncTag: state.config.syncTag,
+        syncTag: mapping.syncTag,
         state: 'linked',
         lastSyncedAt: timestamp,
-        lastSyncedContentHash: hashContent(memoContentToNoteContent(memo.content)),
+        lastSyncedContentHash: hashContent(memoContentToNoteContent(memo.content, mapping.syncTag)),
         lastKnownLocalUpdatedAt: memo.updateTime,
         lastKnownMemoUpdatedAt: memo.updateTime,
+        lastSyncedSnapshotHash: hashLocalSnapshot(localSnapshot(updatedNote)),
       });
     }
 

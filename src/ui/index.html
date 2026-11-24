@@ -5,25 +5,37 @@
   <title>Memos Sync</title>
   <style>
     :root {
-      --bg: var(--theme-background, #1e1e1e);
-      --fg: var(--theme-foreground, #e0e0e0);
-      --accent: var(--theme-primary, #0ea5e9);
-      --accent-hover: var(--theme-primary-dark, #0284c7);
-      --border: var(--theme-border, rgba(255, 255, 255, 0.1));
-      --card-bg: rgba(255, 255, 255, 0.03);
-      --card-bg-hover: rgba(255, 255, 255, 0.05);
-      --sidebar-bg: rgba(0, 0, 0, 0.1);
-      --text-muted: rgba(255, 255, 255, 0.5);
+      --ms-bg: var(--bg, #ffffff);
+      --fg: var(--text-color, #252b2b);
+      --accent: var(--c-primary, #087765);
+      --accent-hover: var(--c-primary, #065e50);
+      --border: var(--divider-color, #d5dad8);
+      --ms-card-bg: var(--card-bg, #f7f9f8);
+      --card-bg-hover: var(--state-hover, #e9f0ed);
+      --sidebar-bg: var(--bg-darker, #f2f6f4);
+      --text-muted: var(--text-color-muted, #56645e);
       --radius: 12px;
       --btn-radius: 6px;
-      --success: #10b981;
-      --error: #ef4444;
-      --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --success: var(--color-success, #168754);
+      --error: var(--color-danger, #c82e39);
+      --font-sans: var(--font-primary-stack, ui-sans-serif, system-ui, sans-serif);
       --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
 
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ms-bg: var(--bg, #1e1e1e);
+        --fg: var(--text-color, #e0e0e0);
+        --border: var(--divider-color, #414945);
+        --ms-card-bg: var(--card-bg, #292e2b);
+        --card-bg-hover: var(--state-hover, #38423c);
+        --sidebar-bg: var(--bg-darker, #252b27);
+        --text-muted: var(--text-color-muted, #b2bdb6);
+      }
+    }
+
     body {
-      background: var(--bg);
+      background: var(--ms-bg);
       color: var(--fg);
       font-family: var(--font-sans);
       font-size: 14px;
@@ -35,6 +47,7 @@
     }
 
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
 
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -70,6 +83,7 @@
       gap: 8px;
       color: var(--accent);
     }
+    .brand svg { width: 28px; height: 28px; flex: none; }
 
     .search-box {
       margin-bottom: 24px;
@@ -79,10 +93,11 @@
     input[type="url"],
     input[type="password"],
     input[type="number"],
+    select,
     textarea {
       width: 100%;
       padding: 10px 12px;
-      background: var(--card-bg);
+      background: var(--ms-card-bg);
       border: 1px solid var(--border);
       border-radius: var(--btn-radius);
       color: var(--fg);
@@ -101,6 +116,29 @@
       margin-bottom: 32px;
     }
 
+    .calendar { margin-bottom: 24px; }
+    .calendar-header { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .calendar-header strong { text-align: center; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-top: 8px; }
+    .calendar-grid span { text-align: center; color: var(--text-muted); font-size: 11px; }
+    .calendar-grid button { min-width: 0; padding: 5px 0; border: 0; font-size: 12px; position: relative; }
+    .calendar-grid button.has-notes::after {
+      content: ''; position: absolute; bottom: 1px; width: 4px; height: 4px;
+      border-radius: 50%; background: var(--accent);
+    }
+    .calendar-grid button.selected { background: var(--accent); color: var(--c-contrast, #fff); }
+    .calendar-grid button.selected::after { background: var(--c-contrast, #fff); }
+    .calendar-clear { margin-top: 6px; width: 100%; }
+    .active-tag { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    dialog {
+      width: min(440px, calc(100% - 32px)); max-height: calc(100% - 32px);
+      overflow-y: auto; background: var(--ms-bg); color: var(--fg);
+      border: 1px solid var(--border); border-radius: var(--radius); padding: 24px;
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+    .dialog-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .dialog-header h2 { margin: 0; font-size: 18px; }
+
     button {
       display: inline-flex;
       align-items: center;
@@ -118,12 +156,12 @@
       transition: all 0.2s;
     }
 
-    button:hover { background: var(--card-bg); }
+    button:hover { background: var(--ms-card-bg); }
 
     button.primary {
       background: var(--accent);
       border-color: var(--accent);
-      color: #fff;
+      color: var(--c-contrast, #fff);
     }
 
     button.primary:hover {
@@ -135,7 +173,7 @@
     button.danger:hover { background: rgba(239, 68, 68, 0.1); }
 
     button.btn-text { border: none; background: transparent; padding: 6px 10px; }
-    button.btn-text:hover { background: var(--card-bg); }
+    button.btn-text:hover { background: var(--ms-card-bg); }
 
     /* SETTINGS & LOG */
     details {
@@ -266,6 +304,8 @@
     }
     .attachment-name {
       white-space: nowrap;
+      border: 0;
+      font-weight: inherit;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -279,7 +319,7 @@
     }
 
     .timeline-card {
-      background: var(--card-bg);
+      background: var(--ms-card-bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px 20px;
@@ -316,7 +356,7 @@
       position: absolute;
       right: 0;
       top: 100%;
-      background: var(--bg);
+      background: var(--ms-bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -353,7 +393,7 @@
     }
 
     .btn-icon:hover {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--card-bg-hover);
       opacity: 1;
     }
 
@@ -361,9 +401,31 @@
 
     .timeline-content {
       font-size: 15px;
-      white-space: pre-wrap;
       word-break: break-word;
     }
+    .timeline-content > :first-child { margin-top: 0; }
+    .timeline-content > :last-child { margin-bottom: 0; }
+    .timeline-content pre { overflow-x: auto; }
+    .timeline-content img { max-width: 100%; height: auto; }
+    .timeline-content a { color: var(--accent); }
+    .note-checkbox { width: auto; margin-right: 4px; }
+
+    .link-previews { display: grid; gap: 8px; margin-top: 10px; }
+    .link-preview {
+      display: flex; overflow: hidden; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--ms-card-bg);
+      color: var(--fg); text-decoration: none; min-height: 72px;
+    }
+    .link-preview:hover { background: var(--card-bg-hover); }
+    .link-preview-text { flex: 1; min-width: 0; padding: 10px 12px; }
+    .link-preview-domain, .link-preview-description, .preview-error { color: var(--text-muted); font-size: 12px; }
+    .link-preview-title { font-weight: 600; margin: 4px 0; overflow-wrap: anywhere; }
+    .link-preview-description { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .link-preview-image { width: 150px; max-width: 35%; object-fit: cover; border-left: 1px solid var(--border); }
+    .attachment-image-button { padding: 0; border: 0; background: transparent; display: block; }
+    .attachment-image { display: block; max-width: min(320px, 100%); max-height: 320px; border-radius: var(--radius); object-fit: contain; }
+    .attachment-image-wrap { max-width: 100%; }
+    .preview-error { margin: 4px 0; }
 
     .note-tag {
       display: inline-flex;
@@ -383,6 +445,11 @@
       color: var(--accent);
     }
 
+    .filters { display: grid; gap: 8px; margin: 12px 0; }
+    .filters select { width: 100%; }
+    .tag-list { display: flex; flex-wrap: wrap; gap: 4px; }
+    .date-heading { color: var(--text-muted); font-size: 13px; margin: 16px 0 4px; }
+
     .timeline-attachments {
       margin-top: 14px;
       display: flex;
@@ -398,7 +465,7 @@
       padding: 6px 12px;
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      background: var(--card-bg);
+      background: var(--ms-card-bg);
       font-size: 13px;
       color: var(--fg);
     }
@@ -410,7 +477,7 @@
     }
 
     .conflict-item {
-      background: rgba(0, 0, 0, 0.2);
+      background: var(--ms-card-bg);
       padding: 12px;
       border-radius: var(--btn-radius);
       margin-bottom: 8px;
@@ -442,20 +509,59 @@
 <body>
   <div class="memos-layout">
     <aside class="sidebar">
-      <div class="brand">📝 Memos Sync</div>
+      <div class="brand"><!-- MEMOS_LOGO -->Memos Sync</div>
       
       <div class="search-box">
         <input type="text" id="notes-search" placeholder="Search notes...">
       </div>
+      <div id="active-tag" class="active-tag" hidden>
+        <span id="active-tag-label"></span>
+        <button id="clear-tag" class="btn-text" type="button" aria-label="Clear tag filter">✕</button>
+      </div>
+      <div class="filters">
+        <label for="notes-filter">Filter</label>
+        <select id="notes-filter">
+          <option value="all">All notes</option>
+          <option value="pinned">Pinned</option>
+          <option value="attachments">With attachments</option>
+        </select>
+        <label for="notes-sort">Sort by</label>
+        <select id="notes-sort">
+          <option value="createdAt">Creation date</option>
+          <option value="updatedAt">Update date</option>
+        </select>
+        <label for="notes-view">View</label>
+        <select id="notes-view">
+          <option value="timeline">Timeline</option>
+          <option value="calendar">Dates</option>
+        </select>
+        <div id="tag-list" class="tag-list" aria-label="Tags"></div>
+      </div>
 
       <div class="nav-buttons">
+        <button id="btn-timeline" type="button" aria-pressed="true">Notes</button>
+        <button id="btn-archived" type="button" aria-pressed="false">Archived</button>
         <button id="btn-sync" class="primary">
           <span class="btn-text-label">Sync Now</span>
         </button>
+        <button id="btn-settings" type="button" aria-haspopup="dialog">Settings</button>
       </div>
 
-      <details>
-        <summary>Settings & Connection</summary>
+      <section class="calendar" aria-label="Note calendar">
+        <div class="calendar-header">
+          <button id="calendar-prev" class="btn-text" type="button" aria-label="Previous month">‹</button>
+          <strong id="calendar-month"></strong>
+          <button id="calendar-next" class="btn-text" type="button" aria-label="Next month">›</button>
+        </div>
+        <div id="calendar-grid" class="calendar-grid"></div>
+        <button id="calendar-clear" class="btn-text calendar-clear" type="button" hidden>Show all dates</button>
+      </section>
+
+      <dialog id="settings-dialog" aria-labelledby="settings-title">
+        <div class="dialog-header">
+          <h2 id="settings-title">Settings & Connection</h2>
+          <button id="btn-close-settings" type="button" class="btn-text" aria-label="Close settings">✕</button>
+        </div>
         <div class="settings-form">
           <div>
             <label for="memos-url">Memos Instance URL</label>
@@ -464,10 +570,6 @@
           <div>
             <label for="memos-token">API Token</label>
             <input type="password" id="memos-token" placeholder="Your memos access token">
-          </div>
-          <div>
-            <label for="sync-tag">Sync Tag</label>
-            <input type="text" id="sync-tag" placeholder="memos-sync">
           </div>
           <div>
             <label class="settings-inline" for="auto-sync-enabled">
@@ -485,7 +587,15 @@
           </div>
           <div id="connection-status" class="status-msg"></div>
         </div>
-      </details>
+      </dialog>
+      <dialog id="attachment-dialog" aria-labelledby="attachment-title">
+        <div class="dialog-header">
+          <h2 id="attachment-title"></h2>
+          <button id="attachment-close" type="button" class="btn-text" aria-label="Close attachment">✕</button>
+        </div>
+        <div id="attachment-preview"></div>
+        <a id="attachment-download" class="btn-text" download>Download</a>
+      </dialog>
 
       <details>
         <summary>Sync Log</summary>
@@ -519,16 +629,20 @@
     </main>
   </div>
 
+  <!-- MARKDOWN_SCRIPT -->
   <script>
     const plugin = window.parent.__memosSyncPlugin;
 
     const urlInput = document.getElementById('memos-url');
     const tokenInput = document.getElementById('memos-token');
-    const tagInput = document.getElementById('sync-tag');
     const autoSyncEnabledEl = document.getElementById('auto-sync-enabled');
     const autoSyncIntervalEl = document.getElementById('auto-sync-interval');
     const statusEl = document.getElementById('connection-status');
     const notesSearchEl = document.getElementById('notes-search');
+    const notesFilterEl = document.getElementById('notes-filter');
+    const notesSortEl = document.getElementById('notes-sort');
+    const notesViewEl = document.getElementById('notes-view');
+    const tagListEl = document.getElementById('tag-list');
     const notesListEl = document.getElementById('notes-list');
     const noteEditorEl = document.getElementById('note-editor');
     const selectedMetaEl = document.getElementById('selected-note-meta');
@@ -536,17 +650,226 @@
     const attachmentInputEl = document.getElementById('attachment-input');
     const editorAttachmentsEl = document.getElementById('editor-attachments');
     const btnAttach = document.getElementById('btn-attach');
+    const settingsDialog = document.getElementById('settings-dialog');
+    const attachmentDialog = document.getElementById('attachment-dialog');
+    const attachmentPreview = document.getElementById('attachment-preview');
+    const attachmentDownload = document.getElementById('attachment-download');
+    let attachmentObjectUrl = null;
+    const imagePreviews = new Map();
+    const linkPreviews = new Map();
+    let activePreviewImages = new Set();
+    let previewObserver = null;
+    let previewWorkers = 0;
+    const previewQueue = [];
+    let previewConfigKey = '';
+
+    function queuePreview(task) {
+      return new Promise((resolve, reject) => {
+        previewQueue.push({ task, resolve, reject });
+        pumpPreviews();
+      });
+    }
+
+    function pumpPreviews() {
+      while (previewWorkers < 4 && previewQueue.length) {
+        const job = previewQueue.shift();
+        previewWorkers++;
+        Promise.resolve().then(job.task).then(job.resolve, job.reject).finally(() => {
+          previewWorkers--;
+          pumpPreviews();
+        });
+      }
+    }
+
+    function safeHttpUrl(value) {
+      try {
+        const url = new URL(value);
+        return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.href : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function observePreview(element, callback) {
+      element._loadPreview = callback;
+      if (previewObserver) previewObserver.observe(element);
+      else callback();
+    }
+
+    function imageKey(noteId, attachmentId) {
+      return JSON.stringify([noteId, attachmentId]);
+    }
+
+    function cleanupImagePreviews() {
+      for (const [key, entry] of imagePreviews) {
+        if (!activePreviewImages.has(key)) {
+          if (entry.url) URL.revokeObjectURL(entry.url);
+          imagePreviews.delete(key);
+        }
+      }
+    }
+
+    function loadImagePreview(element) {
+      const { noteId, attachmentId, mimeType, filename } = element.dataset;
+      const key = imageKey(noteId, attachmentId);
+      let entry = imagePreviews.get(key);
+      if (!entry) {
+        entry = {};
+        imagePreviews.set(key, entry);
+        entry.promise = queuePreview(() => {
+          if (imagePreviews.get(key) !== entry || !activePreviewImages.has(key)) return null;
+          return plugin.readAttachment(noteId, attachmentId);
+        }).then((content) => {
+          if (!content) return null;
+          if (imagePreviews.get(key) !== entry || !activePreviewImages.has(key)) return null;
+          entry.url = URL.createObjectURL(new Blob([content], { type: mimeType }));
+          return entry.url;
+        });
+      }
+      entry.promise.then((url) => {
+        if (!url || !element.isConnected) return;
+        const image = document.createElement('img');
+        image.className = 'attachment-image';
+        image.src = url;
+        image.alt = filename;
+        image.addEventListener('error', () => {
+          element.textContent = 'Image preview unavailable. Use Open to download.';
+        }, { once: true });
+        element.replaceChildren(image);
+      }).catch((error) => {
+        if (element.isConnected) element.textContent = 'Image preview unavailable: ' + (error instanceof Error ? error.message : String(error));
+      });
+    }
+
+    function loadLinkPreview(element) {
+      const url = element.dataset.url;
+      let promise = linkPreviews.get(url);
+      if (!promise) {
+        promise = queuePreview(() => plugin.getLinkMetadata(url));
+        linkPreviews.set(url, promise);
+        if (linkPreviews.size > 200) linkPreviews.delete(linkPreviews.keys().next().value);
+      }
+      promise.then((metadata) => {
+        if (!element.isConnected) return;
+        const imageUrl = safeHttpUrl(metadata.image);
+        if (!metadata.title && !metadata.description && !imageUrl) {
+          element.textContent = 'Preview unavailable. Open the link above.';
+          return;
+        }
+        const card = document.createElement('a');
+        card.className = 'link-preview';
+        card.href = url;
+        card.target = '_blank';
+        card.rel = 'noopener noreferrer';
+        const text = document.createElement('div');
+        text.className = 'link-preview-text';
+        const domain = document.createElement('div');
+        domain.className = 'link-preview-domain';
+        domain.textContent = new URL(url).hostname;
+        const title = document.createElement('div');
+        title.className = 'link-preview-title';
+        title.textContent = metadata.title || url;
+        const description = document.createElement('div');
+        description.className = 'link-preview-description';
+        description.textContent = metadata.description;
+        text.append(domain, title, description);
+        card.appendChild(text);
+        if (imageUrl) {
+          const image = document.createElement('img');
+          image.className = 'link-preview-image';
+          image.src = imageUrl;
+          image.alt = '';
+          image.loading = 'lazy';
+          image.referrerPolicy = 'no-referrer';
+          image.addEventListener('error', () => image.remove(), { once: true });
+          card.appendChild(image);
+        }
+        const source = element._sourceLink;
+        if (source && source.isConnected && source.parentElement?.tagName === 'P' &&
+          source.parentElement.childNodes.length === 1 && safeHttpUrl(source.textContent) === url) {
+          source.parentElement.hidden = true;
+        }
+        element.replaceChildren(card);
+      }).catch((error) => {
+        if (!element.isConnected) return;
+        element.replaceChildren(document.createTextNode('Link preview unavailable: ' + (error instanceof Error ? error.message : String(error)) + ' '));
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'btn-text';
+        retry.textContent = 'Retry';
+        retry.addEventListener('click', () => {
+          if (linkPreviews.get(url) === promise) linkPreviews.delete(url);
+          element.textContent = 'Loading link preview...';
+          loadLinkPreview(element);
+        });
+        element.appendChild(retry);
+      });
+    }
+
+    function preparePreviews(state) {
+      previewObserver?.disconnect();
+      const observer = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          observer.unobserve(entry.target);
+          if (entry.target.isConnected) entry.target._loadPreview();
+        }
+      }, { rootMargin: '200px' });
+      previewObserver = observer;
+      const configKey = state.config.memosBaseUrl + '\n' + state.config.memosApiToken;
+      if (configKey !== previewConfigKey) {
+        linkPreviews.clear();
+        for (const entry of imagePreviews.values()) if (entry.url) URL.revokeObjectURL(entry.url);
+        imagePreviews.clear();
+        previewConfigKey = configKey;
+      }
+      activePreviewImages = new Set();
+      document.querySelectorAll('.image-preview-placeholder').forEach((element) => {
+        activePreviewImages.add(imageKey(element.dataset.noteId, element.dataset.attachmentId));
+        observePreview(element, () => loadImagePreview(element));
+      });
+      cleanupImagePreviews();
+      document.querySelectorAll('.timeline-card').forEach((card) => {
+        const urls = new Map();
+        card.querySelectorAll('.timeline-content a[href]').forEach((anchor) => {
+          const url = safeHttpUrl(anchor.href);
+          if (url && !urls.has(url)) urls.set(url, anchor);
+        });
+        if (!urls.size) return;
+        const container = document.createElement('div');
+        container.className = 'link-previews';
+        for (const [url, anchor] of urls) {
+          const element = document.createElement('div');
+          element.className = 'preview-error';
+          element.dataset.url = url;
+          element._sourceLink = anchor;
+          element.textContent = 'Loading link preview...';
+          container.appendChild(element);
+          observePreview(element, () => loadLinkPreview(element));
+        }
+        card.querySelector('.timeline-content').after(container);
+      });
+    }
+    const calendarMonthEl = document.getElementById('calendar-month');
+    const calendarGridEl = document.getElementById('calendar-grid');
+    const calendarClearEl = document.getElementById('calendar-clear');
+    let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    let selectedDate = null;
+    let selectedTag = null;
+    let showArchived = false;
+    let draftAttachments = [];
     
     const btnCancel = document.getElementById('btn-cancel');
     const btnSaveNote = document.getElementById('btn-save-note');
     const saveLabel = btnSaveNote.querySelector('.save-label');
     let lastComposeRequestId = null;
+    let lastStateRevision = null;
 
     function readConfigFromForm() {
       return {
         memosBaseUrl: urlInput.value.trim(),
         memosApiToken: tokenInput.value.trim(),
-        syncTag: tagInput.value.trim() || 'memos-sync',
+        syncTag: currentState()?.config.syncTag || 'memos-sync',
         autoSyncEnabled: autoSyncEnabledEl.checked,
         pollIntervalMs: Math.max(1, Number(autoSyncIntervalEl.value || 5)) * 60 * 1000,
       };
@@ -572,22 +895,26 @@
       if (!plugin) return;
       const state = currentState();
       if (!state) return;
+      lastStateRevision = state.stateRevision;
       
-      if (document.activeElement !== urlInput) urlInput.value = state.config.memosBaseUrl || '';
-      if (document.activeElement !== tokenInput) tokenInput.value = state.config.memosApiToken || '';
-      if (document.activeElement !== tagInput) tagInput.value = state.config.syncTag || 'memos-sync';
-      autoSyncEnabledEl.checked = Boolean(state.config.autoSyncEnabled);
-      if (document.activeElement !== autoSyncIntervalEl) {
+      if (!settingsDialog.open) {
+        urlInput.value = state.config.memosBaseUrl || '';
+        tokenInput.value = state.config.memosApiToken || '';
+        autoSyncEnabledEl.checked = Boolean(state.config.autoSyncEnabled);
         autoSyncIntervalEl.value = String(Math.max(1, Math.round((state.config.pollIntervalMs || 300000) / 60000)));
       }
 
+      renderCalendar(state);
       renderNotes(state);
       renderEditor(state);
+      updateUploadProgress();
       renderConflicts(state);
       renderLog(state.syncLog || []);
 
       if (state.composeRequestId && state.composeRequestId !== lastComposeRequestId) {
         lastComposeRequestId = state.composeRequestId;
+        draftAttachments = [];
+        renderEditor(state);
         requestAnimationFrame(() => {
           noteEditorEl.focus();
         });
@@ -601,67 +928,153 @@
       return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
-    function renderAttachmentList(attachments, removable) {
+    function memosHomeUrl() {
+      try {
+        const url = new URL(currentState().config.memosBaseUrl);
+        if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return '';
+        url.search = '';
+        url.hash = '';
+        return url.href;
+      } catch {
+        return '';
+      }
+    }
+
+    function renderAttachmentList(attachments, removable, noteId) {
       if (!attachments || attachments.length === 0) {
         return '';
       }
 
       return attachments.map((attachment) => {
+        const image = !removable && /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.mimeType);
         const action = removable
           ? '<button class="btn-icon danger-text" onclick="window.removeAttachmentQuick(\'' + attachment.id + '\')" title="Remove attachment">🗑️</button>'
-          : attachment.remoteUrl
-            ? '<a class="btn-text" target="_blank" rel="noreferrer" href="' + escapeHtml(attachment.remoteUrl) + '">Open</a>'
-            : '';
-        return '<div class="attachment-chip">' +
+          : '<button type="button" class="btn-text open-attachment" data-note-id="' + escapeHtml(noteId) + '" data-attachment-id="' + escapeHtml(attachment.id) + '">Open</button>' +
+            (memosHomeUrl() ? '<a class="btn-text" target="_blank" rel="noopener noreferrer" href="' + escapeHtml(memosHomeUrl()) + '">Memos</a>' : '');
+        return (image ? '<div class="attachment-image-wrap"><button type="button" class="attachment-image-button open-attachment" data-note-id="' + escapeHtml(noteId) + '" data-attachment-id="' + escapeHtml(attachment.id) + '" aria-label="Open ' + escapeHtml(attachment.filename) + '"><span class="image-preview-placeholder preview-error" data-note-id="' + escapeHtml(noteId) + '" data-attachment-id="' + escapeHtml(attachment.id) + '" data-mime-type="' + escapeHtml(attachment.mimeType) + '" data-filename="' + escapeHtml(attachment.filename) + '">Loading image...</span></button>' : '') +
+          '<div class="attachment-chip">' +
           '<div class="attachment-meta">' +
           '<div class="attachment-name">' + escapeHtml(attachment.filename) + '</div>' +
           '<div class="attachment-size">' + escapeHtml(formatAttachmentSize(Number(attachment.size || 0))) + '</div>' +
+          '<div class="attachment-progress" data-note-id="' + escapeHtml(noteId || '') + '" data-attachment-id="' + escapeHtml(attachment.id) + '" aria-live="polite"></div>' +
           '</div>' +
           action +
-          '</div>';
+          '</div>' + (image ? '</div>' : '');
       }).join('');
     }
 
-    function formatNoteContent(content) {
-      return escapeHtml(content || '').replace(/(^|\s)(#[\p{L}\p{N}_-]+)/gu, function(_, prefix, tag) {
-        return prefix + '<span class="note-tag">' + escapeHtml(tag) + '</span>';
-      });
+    function localDateKey(date) {
+      if (Number.isNaN(date.getTime())) return '';
+      return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    }
+
+    function renderCalendar(state) {
+      const year = calendarMonth.getFullYear();
+      const month = calendarMonth.getMonth();
+      const counts = new Map();
+      for (const note of state.notes || []) {
+        if ((note.state === 'ARCHIVED') !== showArchived) continue;
+        const key = localDateKey(new Date(note.createdAt));
+        if (key) counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      calendarMonthEl.textContent = calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      calendarGridEl.replaceChildren();
+      for (let i = 0; i < 7; i++) {
+        const label = document.createElement('span');
+        label.textContent = new Date(2024, 0, i + 1).toLocaleDateString(undefined, { weekday: 'narrow' });
+        calendarGridEl.appendChild(label);
+      }
+      const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+      for (let i = 0; i < firstDay; i++) calendarGridEl.appendChild(document.createElement('span'));
+      const days = new Date(year, month + 1, 0).getDate();
+      for (let day = 1; day <= days; day++) {
+        const date = new Date(year, month, day);
+        const key = localDateKey(date);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = String(day);
+        button.classList.toggle('has-notes', counts.has(key));
+        button.classList.toggle('selected', selectedDate === key);
+        button.setAttribute('aria-pressed', String(selectedDate === key));
+        button.setAttribute('aria-label', date.toLocaleDateString(undefined, { dateStyle: 'full' }) + ': ' + (counts.get(key) || 0) + ' notes');
+        button.addEventListener('click', () => {
+          selectedDate = selectedDate === key ? null : key;
+          loadUI();
+          const replacement = calendarGridEl.querySelectorAll('button')[day - 1];
+          if (replacement) replacement.focus();
+        });
+        calendarGridEl.appendChild(button);
+      }
+      calendarClearEl.hidden = !selectedDate;
     }
 
     function renderNotes(state) {
       const searchTerm = notesSearchEl.value.trim().toLowerCase();
       const allNotes = state.notes || [];
-      const sortedNotes = [...allNotes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const byDate = notesViewEl.value === 'calendar';
+      const dateField = byDate ? 'createdAt' : notesSortEl.value;
+      const sortedNotes = [...allNotes].sort((a, b) =>
+        (byDate ? 0 : Number(Boolean(b.pinned)) - Number(Boolean(a.pinned))) ||
+        new Date(b[dateField]).getTime() - new Date(a[dateField]).getTime());
+
+      const tags = new Set();
+      for (const note of allNotes) {
+        if ((note.state === 'ARCHIVED') !== showArchived) continue;
+        for (const match of (note.content || '').matchAll(/(^|\s)(#[\p{L}\p{N}_-]+)/gu)) {
+          tags.add(match[2]);
+        }
+      }
+      tagListEl.innerHTML = [...tags].sort().map((tag) =>
+        '<button type="button" class="note-tag" data-tag="' + escapeHtml(tag) + '">' + escapeHtml(tag) + '</button>').join('');
 
       const filteredNotes = sortedNotes.filter((note) => {
+        if ((note.state === 'ARCHIVED') !== showArchived) return false;
+        if (selectedDate && localDateKey(new Date(note.createdAt)) !== selectedDate) return false;
+        if (selectedTag && !(note.content || '').match(/(^|\s)#[\p{L}\p{N}_-]+/gu)?.some((tag) => tag.trim() === selectedTag)) return false;
+        if (notesFilterEl.value === 'pinned' && !note.pinned) return false;
+        if (notesFilterEl.value === 'attachments' && !(note.attachments || []).length) return false;
         if (!searchTerm) return true;
         return (note.content || '').toLowerCase().includes(searchTerm);
       });
 
       if (filteredNotes.length === 0) {
-        notesListEl.innerHTML = '<div class="empty-timeline">No notes yet. Type above to create one.</div>';
+        notesListEl.innerHTML = '<div class="empty-timeline">' + (selectedDate || searchTerm || selectedTag || notesFilterEl.value !== 'all' ? 'No notes match this filter.' : showArchived ? 'No archived notes.' : 'No notes yet. Type above to create one.') + '</div>';
+        preparePreviews(state);
         return;
       }
 
+      let previousDate = null;
       notesListEl.innerHTML = filteredNotes.map((note) => {
         const isActive = note.id === state.selectedNoteId;
-        return '<div class="timeline-card ' + (isActive ? 'active-card' : '') + '" id="card-' + note.id + '">' +
+        const key = localDateKey(new Date(note.createdAt));
+        const heading = byDate && key !== previousDate
+          ? '<h2 class="date-heading">' + escapeHtml(new Date(note.createdAt).toLocaleDateString(undefined, { dateStyle: 'full' })) + '</h2>'
+          : '';
+        previousDate = key;
+        return heading + '<div class="timeline-card ' + (isActive ? 'active-card' : '') + '" id="card-' + note.id + '">' +
           '<div class="timeline-meta">' +
-            '<span class="date" title="' + new Date(note.createdAt).toLocaleString() + '">' + formatTimeAgo(note.createdAt) + '</span>' +
+            '<span class="date" title="' + new Date(note.createdAt).toLocaleString() + '">' + (note.pinned ? '📌 ' : '') + formatTimeAgo(note.createdAt) + '</span>' +
             '<div class="dropdown">' +
               '<button class="btn-icon" onclick="toggleDropdown(event, \'dropdown-' + note.id + '\')">⋯</button>' +
               '<div class="dropdown-menu" id="dropdown-' + note.id + '">' +
                 '<button class="menu-item" onclick="window.selectNote(\'' + note.id + '\')">Edit</button>' +
+                '<button class="menu-item" onclick="window.togglePinned(\'' + note.id + '\')">' + (note.pinned ? 'Unpin' : 'Pin') + '</button>' +
+                '<button class="menu-item" onclick="window.toggleArchived(\'' + note.id + '\')">' + (showArchived ? 'Unarchive' : 'Archive') + '</button>' +
+                (note.visibility === 'SPACE' ? '<span class="menu-item">Visibility: Space (read-only)</span>' :
+                  ['PRIVATE', 'PROTECTED', 'PUBLIC'].map((visibility) =>
+                    '<button class="menu-item" onclick="window.setVisibility(\'' + note.id + '\', \'' + visibility + '\')">' +
+                    ((note.visibility || 'PRIVATE') === visibility ? '✓ ' : '') + visibility.toLowerCase() + '</button>').join('')) +
                 '<button class="menu-item danger-text" onclick="window.deleteNoteQuick(\'' + note.id + '\')">Delete</button>' +
               '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="timeline-content">' + formatNoteContent(note.content || '') + '</div>' +
+          '<div class="timeline-content">' + window.memosMarkdown.renderMarkdown(note.content || '', note.id) + '</div>' +
           (note.attachments && note.attachments.length
-            ? '<div class="timeline-attachments">' + renderAttachmentList(note.attachments, false) + '</div>'
+            ? '<div class="timeline-attachments">' + renderAttachmentList(note.attachments, false, note.id) + '</div>'
             : '') +
         '</div>';
       }).join('');
+      preparePreviews(state);
     }
 
     function renderEditor(state) {
@@ -676,7 +1089,7 @@
         noteEditorEl.dataset.mode = 'quick';
         btnCancel.style.display = 'none';
         saveLabel.textContent = 'Save';
-        editorAttachmentsEl.innerHTML = '';
+        editorAttachmentsEl.innerHTML = renderAttachmentList(draftAttachments, true);
         return;
       }
 
@@ -692,7 +1105,7 @@
     }
 
     function renderConflicts(state) {
-      const conflicts = state.mappingStore ? state.mappingStore.mappings.filter((mapping) => mapping.state === 'conflict') : [];
+      const conflicts = state.mappingStore ? state.mappingStore.mappings.filter((mapping) => mapping.state === 'conflict' || mapping.state === 'remote-missing') : [];
       const section = document.getElementById('conflicts-section');
       const list = document.getElementById('conflicts-list');
 
@@ -704,6 +1117,10 @@
 
       section.style.display = 'block';
       list.innerHTML = conflicts.map((mapping) => {
+        if (mapping.state === 'remote-missing') {
+          return '<div class="conflict-item"><div>Remote memo not found or inaccessible. The local note is preserved.</div>' +
+            '<button class="danger" onclick="window.confirmRemoteDeletion(\'' + mapping.localNoteId + '\', \'' + mapping.memoId + '\')">Confirm remote deletion</button></div>';
+        }
         return '<div class="conflict-item">' +
           '<div><strong>Local note ID:</strong> ' + escapeHtml(mapping.localNoteId) + '</div>' +
           '<div><strong>Remote memo ID:</strong> ' + escapeHtml(mapping.memoId) + '</div>' +
@@ -785,6 +1202,35 @@
       noteEditorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
+    window.togglePinned = function(noteId) {
+      const note = currentState().notes.find((item) => item.id === noteId);
+      if (!note) return;
+      plugin.updateNoteMetadata(noteId, { pinned: !note.pinned });
+      loadUI();
+    };
+
+    window.toggleArchived = function(noteId) {
+      const note = currentState().notes.find((item) => item.id === noteId);
+      if (!note) return;
+      plugin.updateNoteMetadata(noteId, { state: note.state === 'ARCHIVED' ? 'NORMAL' : 'ARCHIVED' });
+      if (currentState().selectedNoteId === noteId) deselectNote();
+      loadUI();
+    };
+
+    window.setVisibility = function(noteId, visibility) {
+      const note = currentState().notes.find((item) => item.id === noteId);
+      if (!note || note.visibility === 'SPACE' || (note.visibility || 'PRIVATE') === visibility) return;
+      if (visibility !== 'PRIVATE' && !confirm('This changes who can read the memo in Memos. Continue?')) return;
+      plugin.updateNoteMetadata(noteId, { visibility });
+      loadUI();
+    };
+
+    window.confirmRemoteDeletion = function(localNoteId, memoId) {
+      if (!confirm('Confirm that the memo was deleted in Memos? This removes the local note.')) return;
+      plugin.confirmRemoteDeletion(localNoteId, memoId);
+      loadUI();
+    };
+
     window.deleteNoteQuick = function(id) {
       if (!plugin) return;
       if (confirm("Delete this note?")) {
@@ -800,8 +1246,12 @@
     window.removeAttachmentQuick = function(attachmentId) {
       if (!plugin) return;
       const state = currentState();
-      if (!state || !state.selectedNoteId) return;
-      plugin.removeAttachment(state.selectedNoteId, attachmentId);
+      if (!state) return;
+      if (state.selectedNoteId) {
+        plugin.removeAttachment(state.selectedNoteId, attachmentId);
+      } else {
+        draftAttachments = draftAttachments.filter((attachment) => attachment.id !== attachmentId);
+      }
       loadUI();
     };
 
@@ -816,6 +1266,47 @@
       plugin.unlinkPair(localNoteId, memoId);
       loadUI();
     };
+
+    document.getElementById('btn-settings').addEventListener('click', () => {
+      loadUI();
+      settingsDialog.showModal();
+      urlInput.focus();
+    });
+    for (const [id, archived] of [['btn-timeline', false], ['btn-archived', true]]) {
+      document.getElementById(id).addEventListener('click', () => {
+        showArchived = archived;
+        selectedDate = null;
+        document.getElementById('btn-timeline').setAttribute('aria-pressed', String(!showArchived));
+        document.getElementById('btn-archived').setAttribute('aria-pressed', String(showArchived));
+        loadUI();
+      });
+    }
+    document.getElementById('btn-close-settings').addEventListener('click', () => settingsDialog.close());
+    document.getElementById('attachment-close').addEventListener('click', () => attachmentDialog.close());
+    attachmentDialog.addEventListener('close', () => {
+      if (attachmentObjectUrl) URL.revokeObjectURL(attachmentObjectUrl);
+      attachmentObjectUrl = null;
+      attachmentPreview.replaceChildren();
+      attachmentDownload.removeAttribute('href');
+    });
+    window.addEventListener('unload', () => {
+      if (attachmentObjectUrl) URL.revokeObjectURL(attachmentObjectUrl);
+      previewObserver?.disconnect();
+      for (const entry of imagePreviews.values()) if (entry.url) URL.revokeObjectURL(entry.url);
+      imagePreviews.clear();
+    });
+    document.getElementById('calendar-prev').addEventListener('click', () => {
+      calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+      loadUI();
+    });
+    document.getElementById('calendar-next').addEventListener('click', () => {
+      calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+      loadUI();
+    });
+    calendarClearEl.addEventListener('click', () => {
+      selectedDate = null;
+      loadUI();
+    });
 
     document.getElementById('btn-save').addEventListener('click', () => {
       if (!plugin) return;
@@ -857,6 +1348,11 @@
         const state = currentState();
         if (state && state.selectedNoteId) {
           plugin.updateNote(state.selectedNoteId, text);
+          for (const attachment of draftAttachments) {
+            const { id, ...data } = attachment;
+            plugin.addAttachment(state.selectedNoteId, data);
+          }
+          draftAttachments = [];
           deselectNote();
         }
       } else {
@@ -874,6 +1370,7 @@
     });
 
     btnCancel.addEventListener('click', () => {
+      draftAttachments = [];
       deselectNote();
       loadUI();
     });
@@ -887,35 +1384,34 @@
       const files = Array.from(event.target.files || []);
       if (!files.length) return;
 
-      let state = currentState();
-      if (!state.selectedNoteId) {
-        plugin.createNote();
-        state = currentState();
-        if (state && state.selectedNoteId && noteEditorEl.value.trim()) {
-          plugin.updateNote(state.selectedNoteId, noteEditorEl.value);
-        }
-      }
-
-      if (!state || !state.selectedNoteId) return;
-
-      for (const file of files) {
-        const base64Content = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = String(reader.result || '');
-            resolve(result.includes(',') ? result.split(',')[1] : result);
+      const state = currentState();
+      if (!state) return;
+      try {
+        for (const file of files) {
+          const base64Content = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = String(reader.result || '');
+              resolve(result.includes(',') ? result.split(',')[1] : result);
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          });
+          const attachment = {
+            name: '',
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            size: file.size,
+            base64Content,
           };
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(file);
-        });
-
-        plugin.addAttachment(state.selectedNoteId, {
-          name: '',
-          filename: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          size: file.size,
-          base64Content,
-        });
+          if (state.selectedNoteId) {
+            plugin.addAttachment(state.selectedNoteId, attachment);
+          } else {
+            draftAttachments.push({ ...attachment, id: 'draft_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2) });
+          }
+        }
+      } catch (error) {
+        alert('Could not read attachment: ' + (error instanceof Error ? error.message : String(error)));
       }
 
       attachmentInputEl.value = '';
@@ -928,16 +1424,109 @@
       const originalText = btnText.textContent;
       btnText.textContent = 'Syncing...';
       try {
-        await plugin.runSync(readConfigFromForm());
+        await plugin.runSync();
       } finally {
         btnText.textContent = originalText;
         loadUI();
       }
     });
 
+    function updateUploadProgress() {
+      const notes = currentState()?.notes || [];
+      document.querySelectorAll('.attachment-progress').forEach((element) => {
+        const note = notes.find((item) => item.id === element.dataset.noteId);
+        const attachment = note?.attachments.find((item) => item.id === element.dataset.attachmentId);
+        const progress = attachment?.upload;
+        if (progress?.legacyUncertain) {
+          element.textContent = 'Upload outcome uncertain; check Sync Log.';
+        } else if (progress) {
+          const percent = attachment.size ? Math.round((progress.committedSize || 0) * 100 / attachment.size) : 0;
+          element.textContent = 'Uploading: ' + percent + '%';
+        } else {
+          element.textContent = '';
+        }
+      });
+    }
+    if (plugin) setInterval(() => {
+      const state = currentState();
+      if (state && state.stateRevision !== undefined && state.stateRevision !== lastStateRevision) {
+        lastStateRevision = state.stateRevision;
+        if (state.composeRequestId && state.composeRequestId !== lastComposeRequestId) {
+          loadUI();
+        } else {
+          renderCalendar(state);
+          renderNotes(state);
+          renderConflicts(state);
+          renderLog(state.syncLog || []);
+        }
+      }
+      updateUploadProgress();
+    }, 1000);
+
     notesSearchEl.addEventListener('input', loadUI);
+    for (const control of [notesFilterEl, notesSortEl, notesViewEl]) control.addEventListener('change', loadUI);
+    notesListEl.addEventListener('change', (event) => {
+      const checkbox = event.target.closest('.note-checkbox');
+      if (!checkbox || !plugin) return;
+      const note = currentState().notes.find((item) => item.id === checkbox.dataset.noteId);
+      if (!note) return;
+      const content = window.memosMarkdown.toggleChecklistLine(note.content, Number(checkbox.dataset.line), checkbox.checked);
+      if (content === null) {
+        alert('Could not update this checklist item. Refresh the note and try again.');
+      } else {
+        plugin.updateNote(note.id, content);
+      }
+      loadUI();
+    });
+    function selectTag(event) {
+      const tag = event.target.closest('.note-tag');
+      if (!tag) return;
+      selectedTag = tag.dataset.tag;
+      document.getElementById('active-tag-label').textContent = selectedTag;
+      document.getElementById('active-tag').hidden = false;
+      loadUI();
+    }
+    notesListEl.addEventListener('click', selectTag);
+    notesListEl.addEventListener('click', async (event) => {
+      const button = event.target.closest('.open-attachment');
+      if (!button || !plugin) return;
+      const note = currentState().notes.find((item) => item.id === button.dataset.noteId);
+      const attachment = note?.attachments.find((item) => item.id === button.dataset.attachmentId);
+      if (!attachment) return;
+      button.disabled = true;
+      try {
+        const content = await plugin.readAttachment(note.id, attachment.id);
+        const isImage = /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.mimeType);
+        const safeBlob = new Blob([content], { type: isImage ? attachment.mimeType : 'application/octet-stream' });
+        if (attachmentObjectUrl) URL.revokeObjectURL(attachmentObjectUrl);
+        attachmentObjectUrl = URL.createObjectURL(safeBlob);
+        document.getElementById('attachment-title').textContent = attachment.filename;
+        attachmentDownload.href = attachmentObjectUrl;
+        attachmentDownload.download = attachment.filename;
+        attachmentPreview.replaceChildren();
+        if (isImage) {
+          const image = document.createElement('img');
+          image.src = attachmentObjectUrl;
+          image.alt = attachment.filename;
+          image.style.maxWidth = '100%';
+          attachmentPreview.appendChild(image);
+        }
+        if (!attachmentDialog.open) attachmentDialog.showModal();
+      } catch (error) {
+        alert('Could not open this attachment securely: ' + (error instanceof Error ? error.message : String(error)) + '. Open the memo in Memos instead.');
+      } finally {
+        button.disabled = false;
+      }
+    });
+    tagListEl.addEventListener('click', selectTag);
+    document.getElementById('clear-tag').addEventListener('click', () => {
+      selectedTag = null;
+      document.getElementById('active-tag').hidden = true;
+      loadUI();
+    });
 
     window.addEventListener('keydown', async (event) => {
+      if (settingsDialog.open) return;
       const isMac = navigator.platform.toLowerCase().includes('mac');
       const primaryModifier = isMac ? event.metaKey : event.ctrlKey;
 

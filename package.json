@@ -1,6 +1,6 @@
 {
   "name": "memos-sync",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Two-way sync between plugin-owned notes in Super Productivity and Memos",
   "main": "dist/plugin.js",
   "scripts": {
@@ -28,7 +28,11 @@
     "url": "https://github.com/giba0/memos-sync/issues"
   },
   "license": "MIT",
+  "dependencies": {
+    "markdown-it": "^14.1.0"
+  },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.9.1",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
