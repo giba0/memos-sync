@@ -7,6 +7,7 @@ export interface LocalAttachment {
   mimeType: string;
   size: number;
   base64Content?: string;
+  devicePayload?: boolean;
   upload?: {
     attachmentId: string;
     uploadId?: string;
@@ -24,6 +25,7 @@ export interface LocalNote {
   createdAt: string;
   updatedAt: string;
   attachments: LocalAttachment[];
+  relatedMemoNames?: string[];
   state?: 'NORMAL' | 'ARCHIVED';
   pinned?: boolean;
   visibility?: 'PRIVATE' | 'PROTECTED' | 'PUBLIC' | 'SPACE';

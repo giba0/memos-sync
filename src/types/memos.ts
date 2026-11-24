@@ -11,6 +11,12 @@ export interface MemoAttachment {
   externalLink?: string;
 }
 
+export interface MemoRelation {
+  memo?: { name: string };
+  relatedMemo?: { name: string };
+  type: 'REFERENCE' | 'COMMENT';
+}
+
 export interface Memo {
   name: string;
   content: string;
@@ -22,6 +28,7 @@ export interface Memo {
   updateTime: string;
   creator: string;
   attachments: MemoAttachment[];
+  relations?: MemoRelation[];
 }
 
 export interface CreateMemoRequest {
@@ -36,6 +43,7 @@ export interface UpdateMemoRequest {
   visibility?: MemoVisibility;
   pinned?: boolean;
   state?: MemoState;
+  relations?: MemoRelation[];
 }
 
 export interface CreateAttachmentRequest {

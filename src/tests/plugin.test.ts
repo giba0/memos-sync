@@ -4,10 +4,11 @@ import type { LocalNote, SyncMapping } from '../types';
 import type { Memo } from '../types/memos';
 
 interface TestPlugin {
-  getState(): { notes: LocalNote[]; mappingStore: { mappings: SyncMapping[] }; syncLog: Array<{ results: Array<{ action: string }> }> };
+  getState(): { notes: LocalNote[]; mappingStore: { mappings: SyncMapping[] }; syncLog: Array<{ triggeredBy: string; results: Array<{ action: string }> }> };
   updateNoteMetadata(id: string, metadata: { state?: 'NORMAL' | 'ARCHIVED'; pinned?: boolean; visibility?: 'PRIVATE' | 'PROTECTED' | 'PUBLIC' }): void;
   removeAttachment(id: string, attachmentId: string): void;
   createNote(): LocalNote;
+  saveComposerNote(id: string, content: string, visibility: 'PRIVATE', attachments: [], removed: [], timestamp: string, links: string[]): Promise<LocalNote>;
   updateNote(id: string, content: string): void;
   updateConfig(config: object): void;
   addAttachment(id: string, attachment: object): void;
@@ -78,6 +79,9 @@ it('syncs archive, pin and last attachment deletion while preserving missing not
     }
     if (url.pathname === '/api/attachments:upload' && method === 'POST') return response({ message: 'Not found' }, 404);
     if (url.pathname === '/api/attachments' && method === 'POST') return response(uploaded);
+    if (url.pathname === '/api/memos/target' && method === 'GET') {
+      return response({ ...memo, name: 'memos/target' });
+    }
     if (url.pathname === `/api/${memo.name}` && method === 'GET') {
       return missing ? response({ message: 'not found' }, 404) : response(memo);
     }
@@ -176,6 +180,34 @@ it('syncs archive, pin and last attachment deletion while preserving missing not
     assert.equal(calls.filter((call) => call.method === 'POST' && call.path === '/api/memos').length, 1);
     assert.equal(memo.content, 'new note');
     assert.equal(calls.filter((call) => call.method === 'POST' && call.path === '/api/attachments').length, 1);
+
+    const source = plugin.getState().notes[0];
+    const incoming = { type: 'REFERENCE' as const, memo: { name: 'memos/incoming' }, relatedMemo: { name: memo.name } };
+    memo.relations = [incoming];
+    await plugin.saveComposerNote(source.id, source.content, 'PRIVATE', [], [], source.updatedAt, ['memos/target']);
+    for (let attempt = 0; !memo.relations?.some((relation) => relation.relatedMemo?.name === 'memos/target') && attempt < 50; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(plugin.getState().syncLog[0].triggeredBy, 'hook');
+    assert.deepEqual(memo.relations, [{ type: 'REFERENCE', memo: { name: memo.name }, relatedMemo: { name: 'memos/target' } }]);
+    memo.relations = [incoming];
+    await plugin.runSync();
+    assert.deepEqual(plugin.getState().notes[0].relatedMemoNames, []);
+    assert.equal(plugin.getState().mappingStore.mappings[0].state, 'linked');
+
+    const queuedSource = plugin.getState().notes[0];
+    const listingStarted = new Promise<void>((resolve) => { notifyBlocked = resolve; });
+    blockNextList = true;
+    const inFlight = plugin.runSync();
+    await listingStarted;
+    await plugin.saveComposerNote(queuedSource.id, 'queued edit', 'PRIVATE', [], [], queuedSource.updatedAt, []);
+    unblock?.();
+    await inFlight;
+    for (let attempt = 0; plugin.getState().syncLog[0]?.triggeredBy !== 'hook' && attempt < 50; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(plugin.getState().syncLog[0].triggeredBy, 'hook');
+    assert.equal(memo.content, 'queued edit');
 
     const config = { memosBaseUrl: 'https://memos.example.com', memosApiToken: 'test', syncTag: 'sync', autoSyncEnabled: true, pollIntervalMs: 300000 };
     plugin.updateConfig(config);

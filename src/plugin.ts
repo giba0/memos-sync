@@ -1,15 +1,20 @@
+import { renderMarkdown, toggleChecklistLine } from './ui/markdown';
 import { MemosClient } from './adapters/memos-client';
 import { fetchRemoteMemosForSync } from './adapters/remote-memos';
+import { deleteAttachments, loadAttachment, storeAttachments } from './adapters/local-attachments';
+import { decodeState, encodeState } from './adapters/state-storage';
 import { uploadAttachment } from './adapters/upload';
 import { consumeEvents, eventsUnavailable } from './adapters/event-stream';
 import { computeSyncActions, hashContent, hashLocalSnapshot, hashRemoteSnapshot } from './engine/sync-engine';
 import type { LocalNoteSnapshot, RemoteMemoSnapshot, SyncAction } from './engine/sync-engine';
 import type { LocalAttachment, LocalNote, MappingStore, PluginConfig, SyncLogEntry, SyncMapping, SyncResult } from './types';
-import type { Memo, MemoAttachment } from './types/memos';
+import type { Memo, MemoAttachment, MemoRelation } from './types/memos';
+
+declare const __MARKUP_DOCUMENT__: string;
 
 declare const PluginAPI: {
   onReady(cb: () => void): void;
-  persistDataSynced(data: string): void;
+  persistDataSynced(data: string): void | Promise<void>;
   loadSyncedData(): Promise<string | null>;
   showSnack(config: {
     msg: string;
@@ -61,9 +66,23 @@ let state: PluginState = {
 let autoSyncTimer: ReturnType<typeof setInterval> | null = null;
 let isSyncRunning = false;
 let stateRevision = 0;
+let persistenceQueue: Promise<void> = Promise.resolve();
+let stateReadError: Error | undefined;
 let eventsController: AbortController | null = null;
 let eventSyncTimer: ReturnType<typeof setTimeout> | null = null;
 let eventPending = false;
+let saveSyncPending = false;
+let saveSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleSaveSync(): void {
+  if (!state.config.memosBaseUrl || !state.config.memosApiToken) return;
+  saveSyncPending = true;
+  if (isSyncRunning || saveSyncTimer) return;
+  saveSyncTimer = setTimeout(() => {
+    saveSyncTimer = null;
+    if (saveSyncPending && !isSyncRunning) void runSync('hook');
+  }, 0);
+}
 
 function scheduleEventSync(): void {
   eventPending = true;
@@ -155,7 +174,7 @@ async function loadState(): Promise<void> {
   }
 
   try {
-    const parsed = JSON.parse(raw) as Partial<PluginState>;
+    const parsed = JSON.parse(await decodeState(raw)) as Partial<PluginState>;
     state = {
       config: parsed.config ? {
         ...DEFAULT_CONFIG,
@@ -163,28 +182,30 @@ async function loadState(): Promise<void> {
         syncTag: normalizeSyncTag(parsed.config.syncTag),
       } : { ...DEFAULT_CONFIG },
       notes: parsed.notes ?? [],
-      selectedNoteId: parsed.selectedNoteId ?? null,
-      composeRequestId: parsed.composeRequestId ?? null,
+      selectedNoteId: null,
+      composeRequestId: null,
       mappingStore: parsed.mappingStore ?? { ...DEFAULT_MAPPING_STORE },
       syncLog: parsed.syncLog ?? [],
       deletedRemoteMemoIds: parsed.deletedRemoteMemoIds ?? [],
     };
   } catch {
-    state = {
-      config: { ...DEFAULT_CONFIG },
-      notes: [],
-      selectedNoteId: null,
-      composeRequestId: null,
-      mappingStore: { ...DEFAULT_MAPPING_STORE },
-      syncLog: [],
-      deletedRemoteMemoIds: [],
-    };
+    stateReadError = new Error('Could not read the saved Memos Sync data. The existing data has been left intact.');
+    throw stateReadError;
   }
 }
 
-function saveState(): void {
+function saveState(): Promise<void> {
   stateRevision++;
-  PluginAPI.persistDataSynced(JSON.stringify(state));
+  const snapshot = JSON.stringify(state);
+  const api = PluginAPI;
+  const persisted = persistenceQueue.then(async () => {
+    if (stateReadError) throw stateReadError;
+    await api.persistDataSynced(await encodeState(snapshot));
+  });
+  persistenceQueue = persisted.catch(() => {
+    api.showSnack({ msg: 'Memos Sync could not persist plugin data.', type: 'ERROR' });
+  });
+  return persisted;
 }
 
 function normalizePollIntervalMs(value: number): number {
@@ -304,6 +325,14 @@ function attachmentSignature(attachments: Array<Pick<LocalAttachment, 'name' | '
   );
 }
 
+async function assertDeviceAttachments(note: LocalNote): Promise<void> {
+  for (const attachment of note.attachments) {
+    if (attachment.devicePayload && await loadAttachment(attachment.id) === undefined) {
+      throw new Error(`Attachment "${attachment.filename}" is pending on the device where it was added. Sync from that device.`);
+    }
+  }
+}
+
 async function syncNoteAttachments(note: LocalNote, remoteMemo: Memo, client: MemosClient): Promise<LocalAttachment[]> {
   const memoId = MemosClient.extractId(remoteMemo.name);
   const syncedAttachments: LocalAttachment[] = [];
@@ -316,11 +345,12 @@ async function syncNoteAttachments(note: LocalNote, remoteMemo: Memo, client: Me
       continue;
     }
 
-    if (!attachment.base64Content && attachment.size !== 0) {
+    const base64Content = attachment.devicePayload ? await loadAttachment(attachment.id) : attachment.base64Content;
+    if (base64Content === undefined && (attachment.devicePayload || attachment.size !== 0)) {
       throw new Error(`Attachment "${attachment.filename}" has no content and cannot be uploaded.`);
     }
 
-    const createdAttachment = await uploadAttachment(client, attachment, (upload) => {
+    const createdAttachment = await uploadAttachment(client, { ...attachment, base64Content }, (upload) => {
       const current = getLocalNote(note.id);
       if (!current) throw new Error('The note was removed while uploading an attachment.');
       upsertLocalNote({
@@ -338,6 +368,7 @@ async function syncNoteAttachments(note: LocalNote, remoteMemo: Memo, client: Me
       createdAt: createdAttachment.createTime,
       size: Number(createdAttachment.size || attachment.size),
       base64Content: undefined,
+      devicePayload: undefined,
       upload: undefined,
     };
 
@@ -349,8 +380,9 @@ async function syncNoteAttachments(note: LocalNote, remoteMemo: Memo, client: Me
         ...currentNote,
         attachments: currentNote.attachments.map((entry) => entry.id === attachment.id ? syncedAttachment : entry),
       });
-      saveState();
+      await saveState();
     }
+    if (attachment.devicePayload) void deleteAttachments([attachment.id]).catch(() => {});
   }
 
   const existingNames = remoteMemo.attachments.map((attachment) => attachment.name).sort();
@@ -359,6 +391,27 @@ async function syncNoteAttachments(note: LocalNote, remoteMemo: Memo, client: Me
     await client.setMemoAttachments(memoId, attachmentRefs);
   }
   return syncedAttachments;
+}
+
+function outgoingReferences(memo: Memo): string[] {
+  return [...new Set((memo.relations ?? [])
+    .filter((relation) => relation.type === 'REFERENCE' && relation.memo?.name === memo.name)
+    .flatMap((relation) => relation.relatedMemo?.name ? [relation.relatedMemo.name] : []))].sort();
+}
+
+async function changedReferences(
+  note: LocalNote,
+  memo: Memo,
+  client: MemosClient,
+): Promise<MemoRelation[] | undefined> {
+  const current = outgoingReferences(memo);
+  const desired = [...new Set(note.relatedMemoNames ?? [])].filter((name) => name !== memo.name).sort();
+  if (JSON.stringify(current) === JSON.stringify(desired)) return undefined;
+  // Memos replaces the outgoing reference set. Validate new targets before sending it.
+  for (const name of desired) {
+    if (!current.includes(name)) await client.getMemo(MemosClient.extractId(name));
+  }
+  return desired.map((name) => ({ type: 'REFERENCE', memo: { name: memo.name }, relatedMemo: { name } }));
 }
 
 function localSnapshot(note: LocalNote): LocalNoteSnapshot {
@@ -370,6 +423,7 @@ function localSnapshot(note: LocalNote): LocalNoteSnapshot {
     state: note.state,
     pinned: note.pinned,
     visibility: note.visibility,
+    relatedMemoNames: note.relatedMemoNames,
     attachments: note.attachments.map((attachment) => ({
       id: attachment.id,
       filename: attachment.filename,
@@ -392,6 +446,7 @@ function remoteSnapshot(memo: Memo): RemoteMemoSnapshot {
     state: memo.state,
     pinned: memo.pinned,
     visibility: memo.visibility,
+    relatedMemoNames: outgoingReferences(memo),
     attachments: memo.attachments,
   };
 }
@@ -506,6 +561,7 @@ function createLocalNoteFromRemote(
     state: memo.state,
     pinned: memo.pinned,
     visibility: memo.visibility,
+    relatedMemoNames: outgoingReferences(memo),
   };
 
   upsertLocalNote(note);
@@ -566,7 +622,9 @@ async function executeAction(action: SyncAction, client: MemosClient, currentUse
     switch (action.type) {
       case 'create-memo': {
         const noteBeforeCreate = getLocalNote(action.localNoteId);
-        if (noteBeforeCreate?.visibility === 'SPACE') {
+        if (!noteBeforeCreate) throw new Error('Local note no longer exists.');
+        await assertDeviceAttachments(noteBeforeCreate);
+        if (noteBeforeCreate.visibility === 'SPACE') {
           throw new Error('Cannot create a SPACE memo without its space. Change visibility before syncing.');
         }
         let createdMemo = await client.createMemo({
@@ -589,10 +647,12 @@ async function executeAction(action: SyncAction, client: MemosClient, currentUse
         });
         saveState();
         if (localNote) {
-          if (localNote.state === 'ARCHIVED' || localNote.pinned) {
+          const relations = await changedReferences(localNote, createdMemo, client);
+          if (localNote.state === 'ARCHIVED' || localNote.pinned || relations) {
             createdMemo = await client.updateMemo(memoId, {
               ...(localNote.state === 'ARCHIVED' ? { state: 'ARCHIVED' as const } : {}),
               ...(localNote.pinned ? { pinned: true } : {}),
+              ...(relations ? { relations } : {}),
             });
             const mapping = getMapping(action.localNoteId, memoId);
             if (mapping) {
@@ -643,6 +703,7 @@ async function executeAction(action: SyncAction, client: MemosClient, currentUse
         if (hashLocalSnapshot(localSnapshot(localNote)) !== action.expectedLocalHash) {
           throw new Error('Local note changed during sync. Run sync again to reconcile.');
         }
+        await assertDeviceAttachments(localNote);
         const beforeUpdate = await client.getMemo(action.memoId);
         assertMemoOwner(beforeUpdate, currentUser);
         if (hashRemoteSnapshot(remoteSnapshot(beforeUpdate)) !== action.expectedRemoteHash) {
@@ -651,6 +712,7 @@ async function executeAction(action: SyncAction, client: MemosClient, currentUse
         if (localNote.visibility === 'SPACE' && beforeUpdate.visibility !== 'SPACE') {
           throw new Error('Cannot restore SPACE visibility without its space.');
         }
+        const relations = await changedReferences(localNote, beforeUpdate, client);
         const latestNote = getLocalNote(action.localNoteId);
         if (!latestNote || hashLocalSnapshot(localSnapshot(latestNote)) !== action.expectedLocalHash) {
           throw new Error('Local note changed during sync. Run sync again to reconcile.');
@@ -660,6 +722,7 @@ async function executeAction(action: SyncAction, client: MemosClient, currentUse
           ...(localNote.state && localNote.state !== beforeUpdate.state ? { state: localNote.state } : {}),
           ...(localNote.pinned !== undefined && localNote.pinned !== beforeUpdate.pinned ? { pinned: localNote.pinned } : {}),
           ...(localNote.visibility && localNote.visibility !== beforeUpdate.visibility ? { visibility: localNote.visibility } : {}),
+          ...(relations ? { relations } : {}),
         });
         const syncedAttachments = await syncNoteAttachments(localNote, updatedMemo, client);
         const updatedNote = { ...localNote, attachments: syncedAttachments };
@@ -706,6 +769,7 @@ async function executeAction(action: SyncAction, client: MemosClient, currentUse
           state: remoteMemo.state,
           pinned: remoteMemo.pinned,
           visibility: remoteMemo.visibility,
+          relatedMemoNames: outgoingReferences(remoteMemo),
         };
         upsertLocalNote(updatedNote);
         upsertMapping({
@@ -789,6 +853,7 @@ async function runSync(triggeredBy: 'manual' | 'auto' | 'hook'): Promise<void> {
   }
 
   isSyncRunning = true;
+  saveSyncPending = false;
   const client = createClient();
   if (!client) {
     appendSyncLog([createSyncResult('error', 'Missing Memos URL or API token.')], triggeredBy);
@@ -854,13 +919,14 @@ async function runSync(triggeredBy: 'manual' | 'auto' | 'hook'): Promise<void> {
       return;
     }
 
-    showSnack(`Memos Sync: completed with ${created} new sync action(s).`, 'SUCCESS');
+    if (triggeredBy !== 'hook') showSnack(`Memos Sync: completed with ${created} new sync action(s).`, 'SUCCESS');
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown error';
     appendSyncLog([createSyncResult('error', detail)], triggeredBy);
     showSnack(`Memos Sync error: ${detail}`, 'ERROR');
   } finally {
     isSyncRunning = false;
+    if (saveSyncPending) scheduleSaveSync();
     if (eventPending && state.config.autoSyncEnabled && !eventSyncTimer) scheduleEventSync();
   }
 }
@@ -868,7 +934,7 @@ async function runSync(triggeredBy: 'manual' | 'auto' | 'hook'): Promise<void> {
 PluginAPI.onReady(() => {
   void loadState().then(() => {
     restartAutoSync();
-  });
+  }).catch((error) => showSnack(error.message, 'ERROR'));
   PluginAPI.registerShortcut({
     keys: 'ctrl+alt+m',
     label: 'Open Memos Sync',
@@ -899,10 +965,107 @@ PluginAPI.onReady(() => {
   });
 });
 
+type ComposerAttachment = Omit<LocalAttachment, 'createdAt'>;
+const composerDrafts = new Map<string, {
+  text: string;
+  visibility: LocalNote['visibility'];
+  attachments: ComposerAttachment[];
+  removed: string[];
+  originalUpdatedAt?: string;
+  relatedMemoNames?: string[];
+  dirty: boolean;
+}>();
+
 (globalThis as Record<string, unknown>).__memosSyncPlugin = {
+  renderMarkdown,
+  toggleChecklistLine,
+  getMarkupDocument: async () => {
+    const compressed = Uint8Array.from(atob(__MARKUP_DOCUMENT__), (character) => character.charCodeAt(0));
+    const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Response(stream).text();
+  },
+  getComposerDrafts: () => composerDrafts,
+  saveComposerNote: async (
+    noteId: string | null,
+    content: string,
+    visibility: NonNullable<LocalNote['visibility']>,
+    attachments: ComposerAttachment[],
+    removed: string[],
+    originalUpdatedAt?: string,
+    relatedMemoNames?: string[],
+  ) => {
+    function currentNote() {
+      const existing = noteId ? getLocalNote(noteId) ?? null : null;
+      if (noteId && (!existing || existing.updatedAt !== originalUpdatedAt)) {
+        throw new Error('This memo changed while you were editing. Copy your changes before discarding the draft.');
+      }
+      return existing;
+    }
+    currentNote();
+    const timestamp = nowIso();
+    const localAttachments = attachments.map((attachment) => ({
+      ...attachment,
+      id: createId('attachment'),
+      createdAt: timestamp,
+    }));
+    await storeAttachments(localAttachments);
+    const newIds = localAttachments.map((attachment) => attachment.id);
+    let existing: LocalNote | null;
+    try {
+      existing = currentNote();
+    } catch (error) {
+      void deleteAttachments(newIds).catch(() => {});
+      throw error;
+    }
+    const note: LocalNote = {
+      ...existing,
+      id: existing?.id ?? createId('note'),
+      createdAt: existing?.createdAt ?? timestamp,
+      updatedAt: timestamp,
+      content,
+      visibility,
+      relatedMemoNames: relatedMemoNames ?? existing?.relatedMemoNames,
+      attachments: [
+        ...(existing?.attachments ?? []).filter((attachment) => !removed.includes(attachment.id)),
+        ...localAttachments.map((attachment) => ({ ...attachment, base64Content: undefined, devicePayload: true })),
+      ],
+    };
+    const previousSelection = state.selectedNoteId;
+    const previousRequest = state.composeRequestId;
+    upsertLocalNote(note);
+    try {
+      await saveState();
+    } catch (error) {
+      if (getLocalNote(note.id) === note) {
+        if (existing) upsertLocalNote(existing);
+        else state.notes = state.notes.filter((item) => item.id !== note.id);
+        stateRevision++;
+        void deleteAttachments(newIds).catch(() => {});
+      }
+      throw error;
+    }
+    if (state.selectedNoteId === previousSelection && state.composeRequestId === previousRequest) {
+      state.selectedNoteId = null;
+      state.composeRequestId = null;
+      stateRevision++;
+    }
+    scheduleSaveSync();
+    const removedPayloads = existing?.attachments.filter((item) => item.devicePayload && removed.includes(item.id)) ?? [];
+    void deleteAttachments(removedPayloads.map((item) => item.id)).catch(() => {});
+    return note;
+  },
   getState: () => ({
     ...state,
     stateRevision,
+    isSyncRunning,
+    hasPendingChanges: state.notes.some((note) => {
+      const mapping = state.mappingStore.mappings.find((entry) => entry.localNoteId === note.id);
+      if (!mapping) return true;
+      if (note.attachments.some((attachment) => !attachment.name)) return true;
+      return mapping.lastSyncedSnapshotHash
+        ? hashLocalSnapshot(localSnapshot(note)) !== mapping.lastSyncedSnapshotHash
+        : note.updatedAt !== mapping.lastKnownLocalUpdatedAt;
+    }) || state.deletedRemoteMemoIds.length > 0,
     noteSummaries: state.notes.map((note) => ({
       id: note.id,
       title: deriveNoteTitle(note.content),
@@ -952,8 +1115,9 @@ PluginAPI.onReady(() => {
   readAttachment: async (noteId: string, attachmentId: string): Promise<Blob> => {
     const attachment = getLocalNote(noteId)?.attachments.find((entry) => entry.id === attachmentId);
     if (!attachment) throw new Error('Attachment not found.');
-    if (attachment.base64Content) {
-      const binary = atob(attachment.base64Content);
+    const payload = attachment.devicePayload ? await loadAttachment(attachment.id) : attachment.base64Content;
+    if (payload !== undefined) {
+      const binary = atob(payload);
       return new Blob([Uint8Array.from(binary, (character) => character.charCodeAt(0))], { type: attachment.mimeType });
     }
     const client = createClient();
@@ -1002,12 +1166,15 @@ PluginAPI.onReady(() => {
         return;
       }
 
+      await assertDeviceAttachments(localNote);
       const currentMemo = await client.getMemo(memoId);
       assertMemoOwner(currentMemo, currentUser);
       if (localNote.visibility === 'SPACE' && currentMemo.visibility !== 'SPACE') {
         throw new Error('Cannot restore SPACE visibility without its space.');
       }
+      const relations = await changedReferences(localNote, currentMemo, client);
       const updatedMemo = await client.updateMemo(memoId, {
+        ...(relations ? { relations } : {}),
         content: noteContentToMemoContent(localNote.content, mapping.syncTag),
         state: localNote.state ?? 'NORMAL',
         pinned: localNote.pinned ?? false,
@@ -1044,6 +1211,7 @@ PluginAPI.onReady(() => {
         state: memo.state,
         pinned: memo.pinned,
         visibility: memo.visibility,
+        relatedMemoNames: outgoingReferences(memo),
       };
       upsertLocalNote(updatedNote);
       upsertMapping({

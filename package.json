@@ -1,6 +1,6 @@
 {
   "name": "memos-sync",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Two-way sync between plugin-owned notes in Super Productivity and Memos",
   "main": "dist/plugin.js",
   "scripts": {
@@ -29,7 +29,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "markdown-it": "^14.1.0"
+    "@excalidraw/excalidraw": "^0.18.1",
+    "markdown-it": "^14.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
