@@ -34,7 +34,7 @@ markdown.renderer.rules.text = (tokens, index) => {
   if (linkDepth > 0) return markdown.utils.escapeHtml(text);
   let result = '';
   let offset = 0;
-  const tags = /(^|\s)(#[\p{L}\p{N}_-]+)/gu;
+  const tags = /(^|\s)(#[\p{L}\p{N}_-]+(?:\/[\p{L}\p{N}_-]+)*)/gu;
   for (const match of text.matchAll(tags)) {
     const tag = markdown.utils.escapeHtml(match[2]);
     result += markdown.utils.escapeHtml(text.slice(offset, match.index) + match[1]);
