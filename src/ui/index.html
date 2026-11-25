@@ -941,7 +941,7 @@
         if (!element.isConnected) return;
         const imageUrl = safeHttpUrl(metadata.image);
         if (!metadata.title && !metadata.description && !imageUrl) {
-          element.textContent = 'Preview unavailable. Open the link above.';
+          removeLinkPreviewPlaceholder(element);
           return;
         }
         const card = document.createElement('a');
@@ -978,20 +978,19 @@
           source.parentElement.hidden = true;
         }
         element.replaceChildren(card);
-      }).catch((error) => {
-        if (!element.isConnected) return;
-        element.replaceChildren(document.createTextNode('Link preview unavailable: ' + (error instanceof Error ? error.message : String(error)) + ' '));
-        const retry = document.createElement('button');
-        retry.type = 'button';
-        retry.className = 'btn-text';
-        retry.textContent = 'Retry';
-        retry.addEventListener('click', () => {
-          if (linkPreviews.get(url) === promise) linkPreviews.delete(url);
-          element.textContent = 'Loading link preview...';
-          loadLinkPreview(element);
-        });
-        element.appendChild(retry);
+        element.hidden = false;
+        element.parentElement.hidden = false;
+      }).catch(() => {
+        // Some hosts (for example Reddit) block server-side metadata requests.
+        // Keep the original memo link visible and silently omit the preview.
+        removeLinkPreviewPlaceholder(element);
       });
+    }
+
+    function removeLinkPreviewPlaceholder(element) {
+      const container = element.parentElement;
+      element.remove();
+      if (container?.classList.contains('link-previews') && !container.hasChildNodes()) container.remove();
     }
 
     function preparePreviews(state) {
@@ -1026,12 +1025,13 @@
         if (!urls.size) return;
         const container = document.createElement('div');
         container.className = 'link-previews';
+        container.hidden = true;
         for (const [url, anchor] of urls) {
           const element = document.createElement('div');
-          element.className = 'preview-error';
+          element.className = 'link-preview-placeholder';
           element.dataset.url = url;
           element._sourceLink = anchor;
-          element.textContent = 'Loading link preview...';
+          element.hidden = true;
           container.appendChild(element);
           observePreview(element, () => loadLinkPreview(element));
         }
