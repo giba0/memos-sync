@@ -1,6 +1,6 @@
 {
   "name": "memos-sync",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Two-way sync between plugin-owned notes in Super Productivity and Memos",
   "main": "dist/plugin.js",
   "scripts": {

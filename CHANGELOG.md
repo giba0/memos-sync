@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-25
+
+### Fixed
+
+- Hide link previews when metadata cannot be fetched, keeping the original link visible without technical errors or retry controls.
+
 ## [0.5.1] - 2026-11-25
 
 ### Fixed
